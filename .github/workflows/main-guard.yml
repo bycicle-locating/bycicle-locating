@@ -1,0 +1,43 @@
+name: main-guard
+
+# 作用：直接推送到 main 时把 CI 标红，作为分支保护的替代品。
+# 本仓库是 GitHub Free + private，服务端分支保护不可用（见 CONTRIBUTING.md §1.1），
+# 所以用"事后可见"补上"事前拦截"的缺口。
+#
+# 注意：这个检查只能在推送之后发现，拦不住已经推上去的提交。
+# 事前拦截靠 .githooks/pre-push。
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  via-pr:
+    name: 只允许经 PR 合并
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查该提交是否关联 PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          prs=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq 'length' 2>/dev/null || echo 0)
+          if [ "$prs" -gt 0 ]; then
+            echo "OK：该提交关联了 $prs 个 PR。"
+            exit 0
+          fi
+
+          # 根提交（仓库初始化）豁免，否则首次提交会永远是红的。
+          parents=$(gh api "repos/$REPO/commits/$SHA" --jq '.parents | length')
+          if [ "$parents" -eq 0 ]; then
+            echo "OK：根提交豁免。"
+            exit 0
+          fi
+
+          echo "::error::检测到绕过 PR 直接推送到 main。请改用分支 + PR（CONTRIBUTING.md §1.1）。"
+          exit 1
