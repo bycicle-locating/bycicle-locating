@@ -1,0 +1,48 @@
+# ESP-IDF 默认配置。sdkconfig 本身不入库（见 .gitignore），
+# 任何需要团队共享的开关都必须写在这里，否则别人 clone 后行为不一致。
+#
+# 硬件实测（2026-10-30，board-probe.py）：
+#   芯片 ESP32-S3（ROM 报 esp32s3-20210327），flash 8 MB，
+#   可用堆约 2 MB → 带 PSRAM，按 N8R8（8 MB Octal PSRAM）配置。
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# 分区表与 flash
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+# PSRAM：**默认关闭**。
+# 实测 flash = 8 MB 确定；可用堆约 2 MB 只是"疑似带 PSRAM"，未看模块丝印确认型号。
+# 打开错模式会导致上电反复重启，所以先默认关闭；确认丝印后再按需开启：
+#   ESP32-S3-WROOM-1-N8R8 → CONFIG_SPIRAM=y + CONFIG_SPIRAM_MODE_OCT=y
+#   ESP32-S3-WROOM-1-N8R2 → CONFIG_SPIRAM=y + CONFIG_SPIRAM_MODE_QUAD=y
+# 开启前先确认 GPIO33–37 没有被其他外设占用（Octal PSRAM 会吃掉这几个脚）。
+# CONFIG_SPIRAM=y
+# CONFIG_SPIRAM_MODE_OCT=y
+# CONFIG_SPIRAM_SPEED_80M=y
+
+# 日志与断言
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# BLE：M1 前只有状态服务桩，因此暂不链接 bt 组件；
+# 实现 NimBLE 时把 main/CMakeLists.txt 的 REQUIRES 加上 bt，并保留下面三行。
+# CONFIG_BT_ENABLED=y
+# CONFIG_BT_NIMBLE_ENABLED=y
+# CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+
+# 任务栈：上报任务需要编码 JSON 与 AT 缓冲
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
+CONFIG_FREERTOS_HZ=1000
+
+# 深睡唤醒源：按键与模组 RI 引脚（GPIO 唤醒在 power_mgr 中配置）
+CONFIG_PM_ENABLE=y
+CONFIG_PM_DFS_INIT_AUTO=y
+
+# 新 libc 精简格式：节省空间，但 %f 不可用。
+# 因此 proto_encode 全程整数格式化，不依赖浮点 printf。
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# 看门狗：长时间 AT 交互不得阻塞太久
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=30

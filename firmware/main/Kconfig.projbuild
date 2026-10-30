@@ -1,0 +1,49 @@
+menu "自行车定位设备"
+
+    config BKL_DEVICE_MODEL
+        string "硬件型号"
+        default "BKL1"
+        help
+            写入 device-info 与后端 devices.model，便于按型号区分固件行为。
+
+    config BKL_MQTT_HOST
+        string "MQTT broker 主机名"
+        default "mqtt.example.com"
+        help
+            只填主机名，不要把协议和端口拼进来；端口单独配置以便统一改 TLS。
+
+    config BKL_MQTT_PORT
+        int "MQTT broker 端口"
+        default 8883
+        help
+            生产必须 8883（TLS）。1883 只允许本地联调。
+
+    config BKL_SAMPLE_INTERVAL_S
+        int "骑行采样间隔（秒）"
+        range 5 600
+        default 10
+        help
+            骑行状态下的 GNSS 采样间隔。数值越小轨迹越细，功耗与流量越高。
+
+    config BKL_UPLOAD_INTERVAL_S
+        int "批量上报间隔（秒）"
+        range 30 3600
+        default 60
+        help
+            距上次成功上报超过该时长就尝试发一批。
+
+    config BKL_IDLE_INTERVAL_S
+        int "静止心跳间隔（秒）"
+        range 60 3600
+        default 1800
+        help
+            静止时每次唤醒联网上报的间隔。拉长这一项对续航影响最大。
+
+    config BKL_SELFTEST_ON_BOOT
+        bool "开机自检 ringbuf + 编码 + 发布"
+        default n
+        help
+            用合成点跑一次 ringbuf → proto_encode → publish 全链路，
+            结果只打日志、不产生真实上报。用于产线与硬件验证，正式固件请关闭。
+
+endmenu

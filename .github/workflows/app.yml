@@ -1,0 +1,38 @@
+name: app
+
+on:
+  push:
+    paths:
+      - "app/**"
+      - ".github/workflows/app.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - ".github/workflows/app.yml"
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+
+      - run: flutter pub get
+
+      - name: 静态分析（要求 0 issue）
+        run: flutter analyze
+
+      - name: 格式检查
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: 单元测试
+        run: flutter test

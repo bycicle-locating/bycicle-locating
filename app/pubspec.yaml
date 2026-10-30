@@ -1,0 +1,24 @@
+name: bkl_app
+description: 自行车定位与骑行记录 App
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+# 骨架阶段只引入必需依赖。地图、BLE、NFC 的插件在实现时再加，
+# 现在 core/ 里是接口 + 桩实现，所以不解锁这些 SDK 也能 analyze。
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.0
+  dio: ^5.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

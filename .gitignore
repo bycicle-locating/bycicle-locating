@@ -1,0 +1,71 @@
+# ---- 通用 ----
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# 工具本地状态（不属于项目）
+.mimosa/
+.zcode/
+
+# 密钥与环境（.env.example 需提交）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+!docs/**/*.example
+
+# ---- 后端 (Go) ----
+/backend/bin/
+/backend/dist/
+*.exe
+*.exe~
+*.test
+*.out
+/backend/vendor/
+
+# ---- 手机端 (Flutter/Dart) ----
+/app/.dart_tool/
+/app/build/
+/app/.flutter-plugins
+/app/.flutter-plugins-dependencies
+/app/.packages
+/app/pubspec.lock.bak
+/app/ios/Pods/
+/app/ios/.symlinks/
+/app/ios/Flutter/Flutter.framework
+/app/ios/Flutter/Flutter.podspec
+/app/android/.gradle/
+/app/android/local.properties
+/app/android/app/debug/
+/app/android/app/profile/
+/app/android/app/release/
+/app/android/key.properties
+/app/**/*.g.dart
+/app/**/*.freezed.dart
+/app/**/*.mocks.dart
+/app/coverage/
+/app/.metadata
+
+# ---- 固件 (ESP-IDF) ----
+/firmware/build/
+/firmware/sdkconfig
+/firmware/sdkconfig.old
+/firmware/managed_components/
+/firmware/dependencies.lock
+/firmware/.espressif/
+/firmware/**/build/
+*.bin.tmp
+*.elf
+*.map
+
+# ---- 构建缓存 ----
+build/
+dist/

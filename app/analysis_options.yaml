@@ -1,0 +1,15 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # 调试输出只能走 core/log.dart 的封装，禁止裸 print
+    avoid_print: true
+    # 返回值类型影响可读性与后续改动，要求显式声明
+    always_declare_return_types: true
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+  errors:
+    todo: ignore

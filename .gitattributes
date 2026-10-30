@@ -1,0 +1,24 @@
+# 全部文本按 LF 存储，避免 Windows/CI 的 CRLF 差异影响 diff 与脚本执行
+* text=auto eol=lf
+
+# 脚本在 Windows 下需要 LF 才能被 bash 执行
+*.sh  text eol=lf
+*.bat text eol=crlf
+
+# 二进制与非文本资源
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.bin  binary
+*.zip  binary
+
+# 固件产物不参与 diff
+*.elf binary
+*.map -diff
+
+# 生成代码折叠在 GitHub 评审中
+/app/**/*.g.dart        linguist-generated=true
+/app/**/*.freezed.dart  linguist-generated=true

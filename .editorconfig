@@ -1,0 +1,34 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Go 使用制表符（gofmt 强制）
+[*.go]
+indent_style = tab
+indent_size = 4
+
+# C 固件沿用 ESP-IDF 的 4 空格
+[{*.c,*.h}]
+indent_style = space
+indent_size = 4
+
+[*.dart]
+indent_size = 2
+max_line_length = 100
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+# Windows PowerShell 5.1 在没有 BOM 时按 ANSI 解析 .ps1，
+# 中文会被打乱甚至导致语法错误，因此强制带 BOM。
+[*.ps1]
+charset = utf-8-bom
+
+[Makefile]
+indent_style = tab
