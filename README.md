@@ -67,6 +67,7 @@ cd firmware && idf.py set-target esp32s3 && idf.py build
 | [docs/data-model.md](docs/data-model.md) | 表结构与索引 |
 | [docs/hardware.md](docs/hardware.md) | BOM、引脚、电源预算、天线 |
 | [docs/roadmap.md](docs/roadmap.md) | M0–M4 里程碑 |
+| [docs/branch-protection.md](docs/branch-protection.md) | main 分支保护规则、必需检查与应急流程 |
 | [docs/adr/](docs/adr/) | 架构决策记录 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 协作规范、提交与评审流程 |
 | [AGENTS.md](AGENTS.md) | 给 AI/新成员的工作约束 |

@@ -16,7 +16,7 @@
 
 | 层 | 状态 | 内容 |
 |---|---|---|
-| GitHub 服务端分支保护 | ✅ **已启用（强制）** | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推** |
+| GitHub 服务端分支保护 | ✅ **已启用（强制）** | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
 | 本地 git hook（`.githooks/pre-push`） | ✅ 生效 | 在推送前就挡住直推，省一次往返 |
 | CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 绕过 hook 的直推会被标红留痕 |
 | 人工（PR 模板） | ✅ 生效 | 自检清单与影响面确认 |
@@ -46,9 +46,9 @@ gh pr merge --squash --delete-branch
 - 三个检查 `build` / `analyze-and-test` / `host-tests` 必须全绿才能合并，这条由服务端强制，不可绕过。
 - `SKIP_MAIN_GUARD=1 git push` 只能绕过**本地 hook**，服务端仍会拒绝直推——它现在只用于出问题时的诊断，不再是一条"例外通道"。
 
-> **应急**：确实需要直推（例如被错误提交卡住）时，管理员在
-> Settings → Branches 临时停用保护，处理完立即重新运行 `bash scripts/enable-branch-protection.sh`
-> 恢复。不要长期关闭。
+> **应急**：确实需要直推（例如被错误提交卡住）时，管理员在 Settings → Branches 临时停用规则，
+> 处理完**立刻**按 [docs/branch-protection.md](docs/branch-protection.md) §1 的表格重建。不要长期关闭。
+> 早先的 `scripts/enable-branch-protection.sh` 已废弃删除——规则参数以文档为准，不再维护第二份脚本副本。
 
 ## 2. 跨端契约优先
 
