@@ -4,8 +4,11 @@ name: firmware-host-tests
 # 完整固件构建需要 ESP-IDF 工具链，属 M1（见 docs/roadmap.md）。
 
 # 不加 paths 过滤：必需的检查必须出现在每个 PR 上（见 CONTRIBUTING.md §1.1）。
-# 只测不依赖 ESP-IDF 的纯 C 模块，因此几秒就能跑完，每次都跑不心疼。
-on: [push, pull_request]
+# push 只限 main，避免分支推送与 PR 事件各跑一遍；纯 C 模块几秒就能跑完。
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   host-tests:

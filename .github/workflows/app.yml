@@ -1,7 +1,11 @@
 name: app
 
 # 不加 paths 过滤：必需的检查必须出现在每个 PR 上（见 CONTRIBUTING.md §1.1）。
-on: [push, pull_request]
+# push 只限 main，避免分支推送与 PR 事件各跑一遍、白白消耗 Actions 额度。
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   analyze-and-test:

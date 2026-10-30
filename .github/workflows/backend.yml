@@ -2,7 +2,11 @@ name: backend
 
 # 不加 paths 过滤：必需的检查必须出现在每个 PR 上，
 # 否则只改文档的 PR 会永久卡在 "Expected — Waiting for status to be reported"。
-on: [push, pull_request]
+# push 只限 main：否则分支推送与 PR 事件会各跑一遍，白烧私有仓库的 Actions 额度。
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   build:
