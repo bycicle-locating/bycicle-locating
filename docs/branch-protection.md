@@ -1,10 +1,7 @@
 # 分支保护（main）
 
 `main` 的保护规则已经在 GitHub 上生效，**本页是这套规则的唯一说明**。
-
-> 早先用于首次配置的 `scripts/enable-branch-protection.sh` 已完成使命并删除：
-> 它把规则写死在脚本里，容易和线上实际配置各说各话。需要重建时按本页的参数在网页里操作，
-> 或直接用文末的 API 载荷。
+重建或核对时按本页参数操作，或用 §4 的 API 载荷。
 
 ## 1. 当前生效的规则
 
@@ -50,7 +47,7 @@ remote: - 3 of 3 required status checks are expected.
 2. 用管理员身份完成需要绕过保护的操作；
 3. **立刻**按 §1 的表格重建规则。
 
-停用期间保护不存在，`main-guard` 只能事后标红。不要把停用当成常态。
+停用期间 `main` 没有任何保护，直推会直接生效并进入历史。把停用限制在一次操作之内。
 
 ## 4. 用 API 重建（可选）
 
@@ -86,9 +83,3 @@ gh api repos/bycicle-locating/bycicle-locating/branches/main/protection \
   --jq '{admins: .enforce_admins.enabled, pr: (.required_pull_request_reviews != null),
          checks: .required_status_checks.contexts, strict: .required_status_checks.strict}'
 ```
-
-## 5. 背景：为什么之前用不了
-
-仓库最初是 **private**，GitHub Free 套餐不支持私有仓库的分支保护与 Rulesets
-（API 返回 `403 Upgrade to GitHub Pro or make this repository public`）。
-把仓库转为 public 之后才可用；组织升级到 Team 也能在私有仓库上解锁同样的能力。

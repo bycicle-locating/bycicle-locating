@@ -75,8 +75,6 @@ broker **只在非正常断开时**发布 LWT。设备主动 `DISCONNECT`（如�
 - 这样 `(id, seq)` 在所有报文类型之间全局唯一，`telemetry_points` 才能用
   `PRIMARY KEY (device_id, seq)` 做去重，批量重传也不会冲突。
 
-> 早期草案里点是共用信封 `seq` 的，会导致同一批 60 个点主键碰撞，已废弃。
-
 ## 4. telemetry
 
 ```json

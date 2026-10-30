@@ -9,7 +9,6 @@
 | `mpy-exec.ps1` | Windows PowerShell | 通过 MicroPython raw REPL 在板子上执行一段代码 |
 | `at-probe.py` | 设备端（MicroPython） | 用 UART 给 EC800M 发 AT 指令，验证模组与接线 |
 | `net-probe.py` | 设备端（MicroPython） | 验证 APN、PDP 激活与 DNS（MQTT 的前置条件） |
-| `board-probe.py` | 设备端（MicroPython） | 打印芯片型号、flash 大小、MAC、可用堆 |
 
 ## 典型流程（板子已刷 MicroPython 时）
 
@@ -17,11 +16,7 @@
 # 1. 看板子活着没有、芯片是什么
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/serial-diag.ps1 -Port COM4
 
-# 2. 确认 flash 容量与 MAC（写进 docs/hardware.md）
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mpy-exec.ps1 `
-    -CodeFile scripts/board-probe.py -Port COM4
-
-# 3. 验证 4G 模组接线与 SIM 状态
+# 2. 验证 4G 模组接线与 SIM 状态
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mpy-exec.ps1 `
     -CodeFile scripts/at-probe.py -Port COM4 -TimeoutMs 25000
 ```
