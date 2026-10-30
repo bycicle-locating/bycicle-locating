@@ -68,7 +68,7 @@ gh pr merge --squash --delete-branch
 - 固件只在 `main/modem/` 内调用 AT 指令；采样任务不得阻塞在网络上。
 - 后端 HTTP handler 只做解码与响应，事务逻辑在 service，SQL 只在 `store` 实现里。
 - App 的 widget 不直接发请求，网络调用只在 data 层；跨 feature 只允许通过 `core/`。
-- **安全红线**：绑定必须经后端核验一次性声明码；BLE 连接与 RSSI 不得作为授权或布防依据；解绑只能由服务端发起。
+- **安全红线**：绑定必须经后端核验声明码（该码在设备已绑定期间无效，解绑后恢复）；BLE 连接与 RSSI 不得作为授权或布防依据；解绑只能由服务端发起。
 
 ## 5. PR 检查清单
 
@@ -83,7 +83,8 @@ gh pr merge --squash --delete-branch
 ## 6. 硬件与产线约定
 
 - 每个设备有唯一 `deviceId`（见 `docs/hardware.md` 的命名规则），出厂时与 `claimCode` 一起写入 NVS 和 NFC 标签。
-- NFC 标签内容为 NDEF URI：`https://<domain>/bind?d=<deviceId>&c=<claimCode>`，写入后**上锁只读**。
+- NFC 标签内容为 NDEF URI：`https://<domain>/bind?d=<deviceId>&c=<claimCode>`，由设备经 I²C 写入 ST25DV16K；
+  **不要加只读锁**——声明码轮换需要改写（[ADR-0004](docs/adr/0004-st25dv16k-tag.md)）。
 - `claimCode` 只以哈希形式存在于后端；任何环境不得留存明文（产线工站除外，且用完即销毁）。
 - 固件不得硬编码云端地址，使用 `Kconfig.projbuild` 配置项。
 

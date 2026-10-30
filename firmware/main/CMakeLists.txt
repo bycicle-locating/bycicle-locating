@@ -9,6 +9,7 @@ idf_component_register(
         "modem/modem_mqtt.c"
         "modem/modem_gnss.c"
         "ble/ble_status.c"
+        "nfc/st25dv.c"
         "power/power_mgr.c"
     INCLUDE_DIRS
         "."
@@ -16,6 +17,7 @@ idf_component_register(
         "track"
         "modem"
         "ble"
+        "nfc"
         "power"
     REQUIRES
         nvs_flash

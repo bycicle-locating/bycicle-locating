@@ -59,7 +59,7 @@ internal/config/          环境变量
 1. **SQL 只能出现在 `store` 的实现里**，接口不暴露 `pgx`/`sql.Row` 类型。
 2. **handler 不写业务判断**：鉴权、解码、调用 service、编码，仅此而已。
 3. **幂等靠主键**：`(device_id, seq)` 唯一；应用层不做"先查再插"。
-4. **绑定必须原子**：校验声明码 + 烧毁 + 写车主在同一条 SQL 里完成（见 `docs/data-model.md` §3）。
+4. **绑定必须原子**：校验声明码 + 占用该码 + 写车主在同一条 SQL 里完成（见 `docs/data-model.md` §3）。
 5. **不要在生产启用开发鉴权**：`APP_ENV=prod` 时 `main.go` 会直接拒绝启动，直到 JWT 落地。
 
 ## 待办（M1）

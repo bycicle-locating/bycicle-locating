@@ -84,7 +84,7 @@ type ClaimState struct {
 
 // Store 是持久化接口。实现必须保证：
 //   - InsertTelemetry 对 (DeviceID, Seq) 幂等，返回实际新插入的条数；
-//   - BindDevice 原子完成"校验未绑定 → 烧毁声明码 → 写车主"，并发下只有一个成功；
+//   - BindDevice 原子完成"校验未绑定 → 占用声明码 → 写车主"，并发下只有一个成功；
 //   - 所有方法尊重 ctx 取消。
 type Store interface {
 	InsertTelemetry(ctx context.Context, points []TelemetryPoint) (inserted int, err error)

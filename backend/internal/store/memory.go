@@ -144,7 +144,8 @@ func (m *Memory) ClaimCodeHash(_ context.Context, deviceID string) (ClaimState, 
 	return ClaimState{Hash: h, Claimed: d.ClaimedBy != nil}, nil
 }
 
-// BindDevice 原子绑定并烧毁声明码。
+// BindDevice 原子绑定并占用声明码：claimed_by 非空期间该码不可再用于绑定，
+// 解绑（claimed_by 置空）后恢复可用。
 func (m *Memory) BindDevice(_ context.Context, deviceID, userID, label string) (Device, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
