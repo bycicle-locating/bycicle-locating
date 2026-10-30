@@ -2,7 +2,7 @@
 
 给 AI 代理与新协作者的仓库工作约定。
 
-`CLAUDE.md` 指向本文件（当前因 Windows 未开开发者模式，退化为 `@AGENTS.md` 指针文件）。
+`CLAUDE.md` 是指向本文件的**符号链接**（Windows 上创建软链需开启开发者模式）。
 **内容只维护这一份**，不要在两处分别编辑。
 
 ## 1. 这是什么
@@ -137,7 +137,7 @@ idf.py set-target esp32s3 && idf.py build
 | RSSI 抖动 | 必须滞回（-65/-78 dBm）+ 连续 3 采样去抖 |
 | 深度睡眠清 RAM | `seq`/缓冲元数据必须落 NVS 或 RTC 内存 |
 | Flutter 缺平台目录 | `app/` 尚无 `android/`、`ios/`，不能打包；先 `flutter create --platforms=android,ios --org <你的域名> --project-name bkl_app .` |
-| Windows 软链 | 本仓库 `CLAUDE.md` 暂为指针文件（未开开发者模式，软链创建被拒）；开启后按 CLAUDE.md 内的命令换成真软链 |
+| Windows 软链 | `CLAUDE.md` 是指向 `AGENTS.md` 的符号链接（仓库已设 `core.symlinks=true`）；未开开发者模式的机器检出时会退化成普通文件，需开启后 `rm CLAUDE.md && MSYS=winsymlinks:nativestrict ln -s AGENTS.md CLAUDE.md` |
 
 ## 6. 改这些之前先读文档
 
@@ -148,6 +148,7 @@ idf.py set-target esp32s3 && idf.py build
 | 表结构、索引、骑行切分 | `docs/data-model.md` |
 | 引脚、外设、功耗 | `docs/hardware.md` |
 | 模块职责与 seam | `docs/architecture.md` |
+| 分支保护规则、必需检查 | `docs/branch-protection.md` |
 | 技术选型理由 | `docs/adr/` |
 
 ## 7. 不要做的事
