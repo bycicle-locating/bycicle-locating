@@ -36,8 +36,9 @@ https://<domain>/bind?d=BKL-2026-000123&c=7QK2M5XJ4TZP6RWN
 用 URI 而不是自定义记录，是因为 iOS 锁屏触碰与 Android 都能直接唤起 App，
 不必为两端各写一套 NDEF 解析。`c` 参数长度固定 16，便于校验。
 
-> **Type 5 的注意点**：iOS 自 iOS 14 / iPhone XS 起支持 NFC-V，锁屏后台触碰要求标签上是
-> **格式良好的 NDEF URI**；若要读 block 或 Mailbox，必须由 App 打开 Core NFC 会话（`NFCTagReaderSession`）。
+> **Type 5 的注意点**：iOS 对 NFC-V 的支持按 iOS 版本与机型分别放开，具体版本边界以 Apple 文档为准；
+> 锁屏后台触碰要求标签上是**格式良好的 NDEF URI**；若要读 block 或 Mailbox，必须由 App 打开
+> Core NFC 会话（`NFCTagReaderSession`）。
 > Type 5 的实机资料明显少于 Type 2，**上线前务必在目标机型上验证锁屏触碰**。
 
 NDEF 布局由固件自己拼（芯片只是 EEPROM）：能力容器（CC）→ TLV（tag `0x03`）→ URI 记录；

@@ -17,7 +17,8 @@ static const char *TAG = "bkl.nfc";
  * 否则会读到旧内容并误判校验失败。
  *
  * 认证：不启用 I²C 写保护密码（ADR-0004 决定），因此任何能碰到 I²C 总线的人都能改写标签。
- * 这是可接受的——标签内容不是密钥，真正的授权在后端。
+ * 可接受的原因是声明码只在**设备未绑定期间**可用于绑定：一旦绑定，该码失效，解绑才恢复。
+ * 绑定判定始终在后端完成，设备与标签都不做授权判断。
  */
 
 esp_err_t bkl_st25dv_init(int i2c_port, int sda_gpio, int scl_gpio, int gpo_gpio)
