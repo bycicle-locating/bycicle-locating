@@ -12,13 +12,13 @@
 
 ### 1.1 合并流程（main 受保护）
 
-`main` 只接受经 PR 的合并，规则分三层，**当前能生效的只有后两层**：
+`main` 只接受经 PR 的合并，规则分四层，**最外层已经是服务端强制**：
 
 | 层 | 状态 | 内容 |
 |---|---|---|
-| GitHub 服务端分支保护 | ❌ **当前不可用** | 仓库是 GitHub Free + **private**，该套餐不支持分支保护与 Rulesets（实测返回 403） |
-| 本地 git hook（`.githooks/pre-push`） | ✅ 生效 | 阻止直接 `git push` 到 `main` |
-| CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 直接推到 `main` 的提交会被标红 |
+| GitHub 服务端分支保护 | ✅ **已启用（强制）** | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推** |
+| 本地 git hook（`.githooks/pre-push`） | ✅ 生效 | 在推送前就挡住直推，省一次往返 |
+| CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 绕过 hook 的直推会被标红留痕 |
 | 人工（PR 模板） | ✅ 生效 | 自检清单与影响面确认 |
 
 安装本地拦截（每个 clone 一次）：
@@ -42,13 +42,13 @@ gh pr merge --squash --delete-branch
 
 约定：
 
-- **合并方式统一用 squash**，保持 `main` 线性历史；PR 标题即最终提交信息，所以标题必须符合 Conventional Commits。
-- 三个检查 `build` / `analyze-and-test` / `host-tests` 必须全绿才能合并（人工确认；服务端强制待套餐升级后由 `scripts/enable-branch-protection.sh` 打开）。
-- 需要紧急直接推送时用 `SKIP_MAIN_GUARD=1 git push`，并在 PR/提交里写明原因。这是例外，不是常规路径。
+- **合并方式统一用 squash**，保持 `main` 线性历史；PR 标题即最终提交信息，所以标题必须符合 Conventional Commits。仓库设置已强制 squash-only 并自动删除头部分支。
+- 三个检查 `build` / `analyze-and-test` / `host-tests` 必须全绿才能合并，这条由服务端强制，不可绕过。
+- `SKIP_MAIN_GUARD=1 git push` 只能绕过**本地 hook**，服务端仍会拒绝直推——它现在只用于出问题时的诊断，不再是一条"例外通道"。
 
-> **想恢复服务端强制**：把仓库转为 public，或把组织升级到 Team，然后运行
-> `bash scripts/enable-branch-protection.sh`。脚本里的规则已经写好：必需 PR、三个必需检查、
-> 严格模式、线性历史、禁止强推与删除、必须解决对话。
+> **应急**：确实需要直推（例如被错误提交卡住）时，管理员在
+> Settings → Branches 临时停用保护，处理完立即重新运行 `bash scripts/enable-branch-protection.sh`
+> 恢复。不要长期关闭。
 
 ## 2. 跨端契约优先
 
