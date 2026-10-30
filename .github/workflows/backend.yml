@@ -1,14 +1,8 @@
 name: backend
 
-on:
-  push:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
-  pull_request:
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend.yml"
+# 不加 paths 过滤：必需的检查必须出现在每个 PR 上，
+# 否则只改文档的 PR 会永久卡在 "Expected — Waiting for status to be reported"。
+on: [push, pull_request]
 
 jobs:
   build:

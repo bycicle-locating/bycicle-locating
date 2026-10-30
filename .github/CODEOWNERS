@@ -1,0 +1,25 @@
+# CODEOWNERS
+#
+# 作用：GitHub 会自动把这些路径的 PR 指派给对应负责人。
+# 当前是单人都市项目，"要求 code owner 审批"会把作者自己锁在外面，
+# 因此**不要**在分支保护里开启 require_code_owner_reviews。
+#
+# 有了第二位维护者之后，把对应行改成多人，并在分支保护里打开该开关。
+
+# 默认负责人
+*                                   @Hesitate-P
+
+# 跨端契约：改动必须最先在这里发生（AGENTS.md §3.1）
+/docs/protocol.md                   @Hesitate-P
+/docs/pairing.md                    @Hesitate-P
+/docs/data-model.md                 @Hesitate-P
+
+# 安全敏感实现
+/backend/internal/device/           @Hesitate-P
+/backend/internal/protocol/         @Hesitate-P
+/firmware/main/modem/               @Hesitate-P
+
+# 协作与流程本身
+/AGENTS.md                          @Hesitate-P
+/CONTRIBUTING.md                    @Hesitate-P
+/.github/                           @Hesitate-P

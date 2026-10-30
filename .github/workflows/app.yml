@@ -1,14 +1,7 @@
 name: app
 
-on:
-  push:
-    paths:
-      - "app/**"
-      - ".github/workflows/app.yml"
-  pull_request:
-    paths:
-      - "app/**"
-      - ".github/workflows/app.yml"
+# 不加 paths 过滤：必需的检查必须出现在每个 PR 上（见 CONTRIBUTING.md §1.1）。
+on: [push, pull_request]
 
 jobs:
   analyze-and-test:

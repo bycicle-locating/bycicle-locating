@@ -3,15 +3,9 @@ name: firmware-host-tests
 # 只测不依赖 ESP-IDF 的纯 C 模块，因此在普通 runner 上几秒就能跑完。
 # 完整固件构建需要 ESP-IDF 工具链，属 M1（见 docs/roadmap.md）。
 
-on:
-  push:
-    paths:
-      - "firmware/**"
-      - ".github/workflows/firmware-host-tests.yml"
-  pull_request:
-    paths:
-      - "firmware/**"
-      - ".github/workflows/firmware-host-tests.yml"
+# 不加 paths 过滤：必需的检查必须出现在每个 PR 上（见 CONTRIBUTING.md §1.1）。
+# 只测不依赖 ESP-IDF 的纯 C 模块，因此几秒就能跑完，每次都跑不心疼。
+on: [push, pull_request]
 
 jobs:
   host-tests:

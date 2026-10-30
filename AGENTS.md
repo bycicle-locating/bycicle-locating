@@ -116,6 +116,8 @@ idf.py set-target esp32s3 && idf.py build
 - **C**：`esp_err_t` 返回错误码；结构体用定点整数表示物理量；回调/中断里不阻塞、不分配内存。
 - **注释**：只写代码表达不了的约束（为什么这样、不能怎样）。不写"这行做了什么"。
 - **提交**：`<type>(<scope>): <中文简述>`，见 `CONTRIBUTING.md`。
+- **合并**：`main` 受保护——开分支 → 推分支 → PR → squash 合并。本地 hook 会拦截直接推 `main`
+  （`git config core.hooksPath .githooks` 安装一次）。确需直推时 `SKIP_MAIN_GUARD=1 git push` 并说明原因。
 
 ## 5. 已知坑
 
