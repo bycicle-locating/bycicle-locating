@@ -7,9 +7,9 @@
 | 项 | 实测值 | 来源 |
 |---|---|---|
 | 主控 | **ESP32-S3**（ROM `esp32s3-20210327`） | `scripts/serial-diag.ps1` 抓启动日志 |
-| Flash | **8 MB**（8388608 字节） | `scripts/board-probe.py` |
-| PSRAM | 可用堆约 2 MB，**疑似带 PSRAM**（未看模块丝印确认） | 同上 |
-| MAC | `10:bd:a3:**:**:**`（后三位已打码） | 同上 |
+| Flash | **8 MB**（8388608 字节） | `esp.flash_size()` |
+| PSRAM | 可用堆约 2 MB，**疑似带 PSRAM**（未看模块丝印确认） | `gc.mem_free()` |
+| MAC | `10:bd:a3:**:**:**`（后三位已打码） | `machine.unique_id()` |
 | 板上现有固件 | **MicroPython v1.29.0**（不是本项目固件） | 启动横幅 |
 | 蜂窝模组 | Quectel **EC800MCNGB**，固件 `EC800MCNGBR06A08M08` | `ATI` |
 | SIM | `AT+CPIN?` → `READY` | AT 探测 |

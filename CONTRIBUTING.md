@@ -12,17 +12,12 @@
 
 ### 1.1 合并流程（main 受保护）
 
-`main` 只接受经 PR 的合并，规则分三层，**最外层是服务端强制**：
+`main` 只接受经 PR 的合并，由服务端强制：
 
-| 层 | 状态 | 内容 |
-|---|---|---|
-| GitHub 服务端分支保护 | ✅ **已启用（强制）** | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
-| CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 规则被临时停用期间，直推会被标红留痕 |
-| 人工（PR 模板） | ✅ 生效 | 自检清单与影响面确认 |
-
-> 早期为防止直推，仓库里挂过一个本地 `pre-push` hook。服务端强制生效后它已删除：
-> 两处维护同一规则只会各自漂移，而且它的提示还在教人用 `SKIP_MAIN_GUARD=1` 这个
-> 已经无效的"逃生口"。现在直推会被服务端直接拒绝（`GH006`）。
+| 层 | 内容 |
+|---|---|
+| GitHub 服务端分支保护 | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
+| 人工 | PR 模板里的自检清单与影响面确认 |
 
 完整流程：
 
@@ -42,7 +37,6 @@ gh pr merge --squash --delete-branch
 
 > **应急**：确实需要直推（例如被错误提交卡住）时，管理员在 Settings → Branches 临时停用规则，
 > 处理完**立刻**按 [docs/branch-protection.md](docs/branch-protection.md) §1 的表格重建。不要长期关闭。
-> 早先的 `scripts/enable-branch-protection.sh` 已废弃删除——规则参数以文档为准，不再维护第二份脚本副本。
 
 ## 2. 跨端契约优先
 
