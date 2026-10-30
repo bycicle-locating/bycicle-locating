@@ -9,7 +9,7 @@
 | `mpy-exec.ps1` | Windows PowerShell | 通过 MicroPython raw REPL 在板子上执行一段代码 |
 | `at-probe.py` | 设备端（MicroPython） | 用 UART 给 EC800M 发 AT 指令，验证模组与接线 |
 | `net-probe.py` | 设备端（MicroPython） | 验证 APN、PDP 激活与 DNS（MQTT 的前置条件） |
-| `enable-branch-protection.sh` | Git Bash / Linux | 开启 GitHub 服务端分支保护（当前套餐下会 403，升级或转 public 后可用） |
+| `enable-branch-protection.sh` | Git Bash / Linux | 开启 GitHub 服务端分支保护（仓库为 public 后可用；升级 Team 后私有仓库也可用） |
 | `board-probe.py` | 设备端（MicroPython） | 打印芯片型号、flash 大小、MAC、可用堆 |
 
 ## 典型流程（板子已刷 MicroPython 时）
