@@ -47,7 +47,7 @@ remote: - 3 of 3 required status checks are expected.
 直推被卡住且确实必须处理时（例如误提交了不该进历史的文件）：
 
 1. Settings → Branches → `main` 规则右侧 `⋯` → **Delete rule**；
-2. 用管理员身份完成需要绕过保护的操作（`SKIP_MAIN_GUARD=1` 绕过本地 hook）；
+2. 用管理员身份完成需要绕过保护的操作；
 3. **立刻**按 §1 的表格重建规则。
 
 停用期间保护不存在，`main-guard` 只能事后标红。不要把停用当成常态。

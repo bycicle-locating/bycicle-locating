@@ -1,11 +1,12 @@
 name: main-guard
 
-# 作用：直接推送到 main 时把 CI 标红，作为分支保护的替代品。
-# 本仓库是 GitHub Free + private，服务端分支保护不可用（见 CONTRIBUTING.md §1.1），
-# 所以用"事后可见"补上"事前拦截"的缺口。
+# 作用：直接推送到 main 时把 CI 标红。
 #
-# 注意：这个检查只能在推送之后发现，拦不住已经推上去的提交。
-# 事前拦截靠 .githooks/pre-push。
+# 服务端分支保护（enforce_admins=true）已经会拒绝直推，所以本工作流是**兜底**：
+# 万一保护规则被临时停用、又有人直推，这里会留下一条失败的检查记录。
+# 逐条规则见 docs/branch-protection.md。
+#
+# 注意：它只能在推送之后发现，拦不住已经推上去的提交。
 
 on:
   push:

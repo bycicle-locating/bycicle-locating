@@ -12,22 +12,17 @@
 
 ### 1.1 合并流程（main 受保护）
 
-`main` 只接受经 PR 的合并，规则分四层，**最外层已经是服务端强制**：
+`main` 只接受经 PR 的合并，规则分三层，**最外层是服务端强制**：
 
 | 层 | 状态 | 内容 |
 |---|---|---|
 | GitHub 服务端分支保护 | ✅ **已启用（强制）** | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
-| 本地 git hook（`.githooks/pre-push`） | ✅ 生效 | 在推送前就挡住直推，省一次往返 |
-| CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 绕过 hook 的直推会被标红留痕 |
+| CI（`.github/workflows/main-guard.yml`） | ✅ 生效 | 规则被临时停用期间，直推会被标红留痕 |
 | 人工（PR 模板） | ✅ 生效 | 自检清单与影响面确认 |
 
-安装本地拦截（每个 clone 一次）：
-
-```bash
-git config core.hooksPath .githooks
-# Linux / macOS 上还需保证 hook 可执行（Windows 无此位）
-chmod +x .githooks/pre-push
-```
+> 早期为防止直推，仓库里挂过一个本地 `pre-push` hook。服务端强制生效后它已删除：
+> 两处维护同一规则只会各自漂移，而且它的提示还在教人用 `SKIP_MAIN_GUARD=1` 这个
+> 已经无效的"逃生口"。现在直推会被服务端直接拒绝（`GH006`）。
 
 完整流程：
 
@@ -44,7 +39,6 @@ gh pr merge --squash --delete-branch
 
 - **合并方式统一用 squash**，保持 `main` 线性历史；PR 标题即最终提交信息，所以标题必须符合 Conventional Commits。仓库设置已强制 squash-only 并自动删除头部分支。
 - 三个检查 `build` / `analyze-and-test` / `host-tests` 必须全绿才能合并，这条由服务端强制，不可绕过。
-- `SKIP_MAIN_GUARD=1 git push` 只能绕过**本地 hook**，服务端仍会拒绝直推——它现在只用于出问题时的诊断，不再是一条"例外通道"。
 
 > **应急**：确实需要直推（例如被错误提交卡住）时，管理员在 Settings → Branches 临时停用规则，
 > 处理完**立刻**按 [docs/branch-protection.md](docs/branch-protection.md) §1 的表格重建。不要长期关闭。

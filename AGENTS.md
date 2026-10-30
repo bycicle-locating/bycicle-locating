@@ -117,7 +117,7 @@ idf.py set-target esp32s3 && idf.py build
 - **注释**：只写代码表达不了的约束（为什么这样、不能怎样）。不写"这行做了什么"。
 - **提交**：`<type>(<scope>): <中文简述>`，见 `CONTRIBUTING.md`。
 - **合并**：`main` 受**服务端强制**保护——开分支 → 推分支 → PR → 三个检查全绿 → squash 合并。
-  `enforce_admins=true`，管理员直推也会被 `GH006` 拒绝；`SKIP_MAIN_GUARD=1` 只能绕过本地 hook，不是例外通道。
+  `enforce_admins=true`，管理员直推也会被 `GH006` 拒绝，没有本地可绕过的开关。
   应急时才由管理员临时停用保护，见 `CONTRIBUTING.md` §1.1。
 
 ## 5. 已知坑
