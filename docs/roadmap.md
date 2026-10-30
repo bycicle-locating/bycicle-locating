@@ -26,6 +26,8 @@
 - [x] 数据链路：APN `CMNET`、`AT+CGATT?`=1、`AT+QIACT=1` 拿到 IP、DNS 可解析（运营商 CGNAT）
 - [ ] GNSS 室外首次定位（`AT+QGPSLOC?` 返回有效坐标与时间）
 - [ ] 模组侧 MQTT 连通：`AT+QMTOPEN` → `AT+QMTCONN` → `AT+QMTPUB`
+- [ ] ST25DV16K 接入：I²C 识别（读 UID）、NDEF 读写与读回校验、天线调谐后实测读距
+- [ ] 锁屏触碰实测：Android 与 iOS（Type 5 的后台读取得真机确认）
 - [ ] 后端：MQTT 订阅 + `internal/protocol` 校验 + `Store` Postgres 实现 + 迁移脚本
 - [ ] 固件：`modem_at` 真实实现（UART + URC），`modem_mqtt` 完成 QMTOPEN/CONN/PUBEX
 - [ ] 固件：`track/ringbuf` 落 LittleFS，`uploader` 批量与退避
@@ -50,6 +52,7 @@
 - [ ] 后端：`alerts` + WebSocket 推送；`context` 快照便于复盘误报
 - [ ] 固件：震动中断 → `event{motion}` + 临时提高采样率
 - [ ] 后端：解绑接口（仅车主）+ 审计
+- [ ] 声明码轮换（`cmd: write_claim`）：设备改写标签 NDEF，旧码失效，关闭"解绑 → 重绑"克隆窗口
 - [ ] App：告警页、已读、围栏编辑；「车在附近」仅作提示
 
 **退出标准**：锁车后轻推触发告警，推送延迟 < 15 s；连续 7 天无误报（或误报率可量化）。
@@ -59,7 +62,7 @@
 - [ ] 24 h 电流曲线实测，校正 `hardware.md` §4
 - [ ] 深度睡眠策略（PSM/eDRX + 睡眠前发 `online:false`）
 - [ ] OTA（双分区 + 回滚 + 版本灰度）
-- [ ] 产线工具：NVS 写入 + NFC 写卡上锁 + 自检
+- [ ] 产线工具：NVS 写入 + NFC 标签写入（ST25DV，不加只读锁）+ 自检
 - [ ] CI：app 与 firmware 的构建流水线（当前仅有 backend）
 
 **退出标准**：满电待机 ≥ 30 天（每天 1 h 骑行）；OTA 失败可自动回滚。

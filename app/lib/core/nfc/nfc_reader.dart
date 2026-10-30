@@ -1,12 +1,19 @@
 /// NFC 绑定标签的读取与解析。契约见 docs/pairing.md §2–§3。
 ///
-/// 标签内容是 NDEF URI：`https://<domain>/bind?d=<deviceId>&c=<claimCode>`。
-/// 本文件只负责"读到的文本 → BindTag"，不负责调后端、也不负责加锁。
+/// 标签是 **ST25DV16K**（ISO/IEC 15693，NFC Forum **Type 5**），内容为 NDEF URI：
+/// `https://<domain>/bind?d=<deviceId>&c=<claimCode>`。
+///
+/// 实现要点（M1）：
+/// - 轮询配置必须包含 **ISO 15693**，只开 ISO 14443（Type 2）是读不到的；
+/// - Android 直接读 NFC-V 的 NDEF；iOS 用 `NFCTagReaderSession` 的 `.iso15693` 轮询选项
+///   （锁屏后台触碰由系统处理，但 Type 5 的实机表现必须在目标机型上验证）；
+/// - 本文件只负责"读到的文本 → BindTag"，不负责调后端、也不负责加锁。
 library;
 
 /// 从标签解析出的绑定材料。
 ///
-/// ⚠️ `claimCode` 是一次性声明码，属于敏感数据：不要写日志、不要放进埋点。
+/// ⚠️ `claimCode` 属于敏感数据：不要写日志、不要放进埋点。
+/// 它**不是一次性使用**——设备已绑定期间失效，解绑后原码恢复可用（docs/pairing.md §3）。
 class BindTag {
   const BindTag({required this.deviceId, required this.claimCode});
 

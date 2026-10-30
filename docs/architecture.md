@@ -13,7 +13,7 @@
 | Cat.1 上行仅约 5 Mbps、按流量计费 | 不做实时音频/图片；轨迹点压缩后批量上报 |
 | 设备无法经常 OTA | **一切可变的业务逻辑放后端**，固件只做采样与传输 |
 | 设备时钟在无 GNSS 时不可靠 | 排序只信 `seq`；时间用 GNSS UTC，缺失时标记 |
-| 设备装在露天，物理可及 | 绑定靠一次性声明码；解绑只能服务端发起 |
+| 设备装在露天，物理可及 | 绑定靠声明码（在设备已绑定期间失效）；解绑只能服务端发起 |
 | **设备在运营商 CGNAT 之后**（实测私网 IP `10.43.x.x`） | 后端**无法主动连接设备**：broker 必须公网可达，下行指令只能靠设备订阅后经 broker 中转 |
 
 ## 2. 分层
@@ -37,16 +37,19 @@ flowchart TB
   subgraph mobile[手机端]
     APP[Flutter App] --> API
     APP --> BLE
-    NFC[NTAG215] --> APP
+    NFC[ST25DV16K] --> APP
   end
 ```
+
+设备这一侧还有一条链路：**固件经 I²C 改写 NFC 标签里的绑定 URI**，所以声明码可以轮换
+（[ADR-0004](adr/0004-st25dv16k-tag.md)）。它不在上面这张数据流图里，因为不参与数据上报。
 
 三条链路彼此不共享代码，只共享**文档化契约**：
 
 | 契约 | 文档 | 两侧实现 |
 |---|---|---|
 | 设备↔云 | [protocol.md](protocol.md) | 固件 `main/proto` ↔ 后端 `internal/protocol` |
-| App↔设备 | [pairing.md](pairing.md) | 固件 `main/ble` ↔ App `core/ble`、`core/nfc` |
+| App↔设备 | [pairing.md](pairing.md) | 固件 `main/ble`、`main/nfc` ↔ App `core/ble`、`core/nfc` |
 | App↔云 | OpenAPI（后端生成） | 后端 `internal/api` ↔ App `core/api` |
 
 ## 3. 深模块与 seam
@@ -72,7 +75,7 @@ flowchart TB
 |---|---|---|
 | `internal/ingest` | `Handle(ctx, env) error` | 校验、幂等去重、批量落库、触发骑行重组与告警 |
 | `internal/store` | `Store` 接口（按领域方法，不暴露 SQL 类型） | 事务边界、索引选择、分页 |
-| `internal/device` | `Bind(ctx, deviceID, claimCode) error` / `Unbind(...)` | 声明码哈希校验、烧毁、限流、指令下发 |
+| `internal/device` | `Bind(ctx, deviceID, claimCode) error` / `Unbind(...)` | 声明码哈希校验、占用判定、限流、指令下发 |
 | `internal/api` | HTTP handler（薄） | 只是解码→调服务→编码 |
 
 `ingest.Handle` 是纯逻辑：入参是已解出的信封，依赖注入 `Store` 与 `Clock`，**不碰网络**，因此可单测。
@@ -118,7 +121,7 @@ Widget 只见 Provider 与领域模型，不见 DTO、不见 HTTP。
 | 掉电时正在写 flash | `ringbuf` 用「写记录+最后写头指针」保证只丢最后一条 |
 | 重复投递 | 幂等键 `(id,seq)`，重复视为成功 |
 | 设备时钟跳变 | 排序以 `seq` 为准；`ts` 仅用于展示与骑行切分，异常时后端用接收时间兜底 |
-| 声明码泄露 | 已被使用过则无价值；未使用则一旦绑定即烧毁 |
+| 声明码泄露 | 设备已绑定期间该码无效；解绑后原码恢复可用，此时风险由"解绑只能车主发起"限制 |
 | 后端宕机 | 设备继续缓存；MQTT 保留消息让 App 看到离线状态 |
 
 ## 6. 明确不做的事

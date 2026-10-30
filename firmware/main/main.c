@@ -17,6 +17,7 @@
 #include "power_mgr.h"
 #include "proto_encode.h"
 #include "ringbuf.h"
+#include "st25dv.h"
 #include "uploader.h"
 
 static const char *TAG = "bkl";
@@ -190,6 +191,9 @@ void app_main(void)
     };
     if (bkl_ble_init(&ble_id) != ESP_OK) {
         ESP_LOGW(TAG, "BLE 未就绪");
+    }
+    if (bkl_st25dv_init(0, 5, 6, 9) != ESP_OK) {
+        ESP_LOGW(TAG, "NFC 标签未就绪（ST25DV16K，I²C0 SDA=5 SCL=6 GPO=9）");
     }
 
     ESP_LOGW(TAG, "M0 骨架：采样/AT/GNSS/BLE 均为桩实现，见 docs/roadmap.md 的 M1");

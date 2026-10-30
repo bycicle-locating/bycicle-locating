@@ -19,13 +19,15 @@
 | `backend/` | 云端服务 | Go（标准库起步） | MQTT 接入 + HTTP/WebSocket API |
 | `docs/` | 设计与契约 | Markdown + Mermaid | **改协议先改这里** |
 
-硬件由 ESP32 + Quectel **EC800M**（Cat.1，需 GNSS 选配版）+ NTAG215 NFC 标签组成，详见 [docs/hardware.md](docs/hardware.md)。
+硬件由 ESP32-S3 + Quectel **EC800M**（Cat.1，GNSS 为选配版本）+ **ST25DV16K** NFC 标签组成，
+详见 [docs/hardware.md](docs/hardware.md)。
 
 ## 数据通路
 
 ```mermaid
 flowchart LR
-  TAG[NTAG215 标签] -- NFC 触碰 --> APP[Flutter App]
+  TAG[ST25DV16K 标签] -- NFC 触碰 --> APP[Flutter App]
+  FW -- I2C 写 NDEF --> TAG
   APP -- HTTPS 绑定 --> API[Go 后端]
   FW[ESP32 固件] -- UART/AT --> MODEM[EC800M 4G+GNSS]
   MODEM -- MQTT/TLS --> BROKER[(Mosquitto)]

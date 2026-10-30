@@ -69,6 +69,8 @@ idf.py menuconfig        # 自行车定位设备 → 开机自检
 5. **`seq`/缓冲元数据必须跨深度睡眠保留**（NVS 或 RTC 内存），否则重启后幂等失效。
 6. **睡眠前主动发布 `online:false`**：主动断开不会触发 broker 的遗嘱消息（protocol.md §2.2）。
 7. **BLE 不实现绑定。** 绑定只走 NFC + 后端校验（pairing.md）。
+8. **I²C 总线只有一个初始化方。** MPU-6050（0x68）与 ST25DV16K（0x53）共用 GPIO5/6，
+   总线由 `main.c` 统一初始化后把句柄传给各驱动；驱动模块自己不得调用 `i2c_driver_install`。
 
 ## 已知坑
 

@@ -37,6 +37,8 @@ erDiagram
 | `id` | `text` PK | `deviceId`，如 `BKL-2026-000123`，**不用自增** |
 | `model` | `text` NOT NULL | 硬件型号 |
 | `claim_code_hash` | `text` | 带服务端 pepper 的 HMAC-SHA256；**绑定后保留不删**，用于区分"码错"与"已绑定" |
+| `claim_code_prev_hash` | `text` NULL | 轮换宽限期内的旧码哈希（M3）；NULL 表示没有待退场的旧码 |
+| `claim_code_prev_expires_at` | `timestamptz` NULL | 旧码失效时刻；到期后由后台任务把上面两列置 NULL |
 | `device_secret_hash` | `text` | MQTT 密码哈希 |
 | `claimed_by` | `uuid` NULL REFERENCES users | 当前车主；NULL = 可绑定 |
 | `claimed_at` | `timestamptz` NULL | 绑定时写入，**不可回滚为 NULL**（解绑写 `unbound_at`） |
@@ -170,6 +172,11 @@ erDiagram
 3. **解绑**写 `devices.claimed_by=NULL` 并追加 `device_bindings.unbound_at`，**不清** `telemetry_points`（车主的轨迹历史仍属原账号）。
 4. 轨迹点写入与应用告警判定分两步：先落库再算，避免算法故障丢数据。
 5. 设备删除 = 逻辑删除（`state='RETIRED'`），保留审计。
+6. **声明码轮换（M3，见 protocol.md §7.3）**：`claim_code_hash` 是生效中的主哈希，
+   `claim_code_prev_hash` 是刚被换下、仍在宽限期的旧哈希。
+   绑定校验的通过条件是「匹配主哈希，**或**匹配未过期的旧哈希」（`claim_code_prev_expires_at > now()`）；
+   两条都不匹配时对外仍是统一的 403。
+   宽限期结束必须清空旧哈希——留着等于永久保留一个可用凭证。
 
 ## 4. 尚未决定
 

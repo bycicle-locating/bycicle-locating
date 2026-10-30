@@ -14,6 +14,8 @@ const (
 	CmdUnbind    = "unbind"
 	CmdSetConfig = "set_config"
 	CmdReboot    = "reboot"
+	// CmdWriteClaim 让设备把新的声明码写入 NFC 标签（M3，见 protocol.md §7.3）。
+	CmdWriteClaim = "write_claim"
 )
 
 // Command 是云端下发给设备的指令。
@@ -39,7 +41,7 @@ func EncodeCommand(c Command) ([]byte, error) {
 		return nil, fmt.Errorf("%w: 缺少 cmdId", ErrInvalidPayload)
 	}
 	switch c.Name {
-	case CmdLocate, CmdBind, CmdUnbind, CmdSetConfig, CmdReboot:
+	case CmdLocate, CmdBind, CmdUnbind, CmdSetConfig, CmdReboot, CmdWriteClaim:
 	default:
 		return nil, fmt.Errorf("%w: 未知指令 %q", ErrInvalidPayload, c.Name)
 	}
