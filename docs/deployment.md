@@ -95,10 +95,10 @@ BKL_E2E_PORT=18080 bash deploy/e2e.sh
   Tunnel 由服务器主动出站到 Cloudflare，绕开入站检查，同时提供 443 证书。
 - 隧道 token 只存在服务器 `.env`。需要轮换时在 Cloudflare 隧道详情点“轮换令牌”，
   更新 `.env` 后 `docker compose --profile tunnel up -d --force-recreate cloudflared`。
-- 公网入口的鉴权分两层：
-  1. Cloudflare Access（边缘）：只放行登录用户或服务令牌；
-  2. 后端开发鉴权（M0）：`X-Dev-User` 即身份，JWT 落地前仍可伪造。
-  Access 只能降低暴露面，不能替代 M1 的 JWT。
+- 建议在 Cloudflare Zero Trust 为 `bycicle-locating.top` 加 Access 策略：只放行车主邮箱与
+  联调服务令牌。启用后 `smoke.sh` 会自动带 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`。
+  Access 只是边缘收口，不能替代 M1 的 JWT。
+- 当前公网实例已移除 `DEV_USER_ID` 回退：无头请求返回 401，但带任意 `X-Dev-User` 仍会被信任。
 
 ## 7. 当前限制
 
