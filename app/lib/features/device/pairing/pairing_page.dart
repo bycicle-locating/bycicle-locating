@@ -119,8 +119,8 @@ class _PairingPageState extends ConsumerState<PairingPage> {
                   Text('用手机触碰车上的标签', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    '标签里存着一次性的绑定声明码。绑定成功后声明码立即作废，'
-                    '同一张标签无法再绑定第二台手机。',
+                    '标签里的声明码在设备未绑定期间有效。设备已绑定时再次触碰会提示“已绑定”，'
+                    '车主解绑后这张标签即可重新绑定。',
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
