@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:go_router/go_router.dart';
 
 /// 三个一级 tab 的骨架：底部导航常驻，分支栈由 go_router 管理。
@@ -30,7 +31,7 @@ class MainShell extends StatelessWidget {
                 label: '骑行',
               ),
               BottomNavigationBarItem(
-                icon: Icon(CupertinoIcons.car_fill),
+                icon: Icon(Icons.pedal_bike),
                 label: '车辆',
               ),
             ],

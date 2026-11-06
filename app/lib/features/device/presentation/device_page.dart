@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -115,7 +116,7 @@ class _BindCard extends StatelessWidget {
                 color: primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(CupertinoIcons.car_fill, size: 34, color: primary),
+              child: Icon(Icons.pedal_bike, size: 34, color: primary),
             ),
             const SizedBox(width: 18),
             Expanded(

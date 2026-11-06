@@ -1,6 +1,7 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -216,7 +217,7 @@ class _LocationPin extends StatelessWidget {
       padding: const EdgeInsets.all(5),
       child: Container(
         decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
-        child: const Icon(CupertinoIcons.car_fill,
+        child: const Icon(Icons.pedal_bike,
             size: 30, color: CupertinoColors.white),
       ),
     );
@@ -260,7 +261,7 @@ class _StatusCard extends StatelessWidget {
                       color: primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(CupertinoIcons.car_fill, color: primary),
+                    child: Icon(Icons.pedal_bike, color: primary),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
