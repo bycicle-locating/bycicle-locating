@@ -18,7 +18,7 @@ class MapPage extends StatelessWidget {
           IconButton(
             tooltip: '设置',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go('/settings'),
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -41,7 +41,7 @@ class MapPage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                onPressed: () => context.go('/device/pair'),
+                onPressed: () => context.push('/device/pair'),
                 icon: const Icon(Icons.nfc),
                 label: const Text('绑定设备'),
               ),
@@ -53,24 +53,6 @@ class MapPage extends StatelessWidget {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (index) {
-          switch (index) {
-            case 1:
-              context.go('/rides');
-            case 2:
-              context.go('/device');
-            default:
-              break;
-          }
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: '地图'),
-          NavigationDestination(icon: Icon(Icons.pedal_bike), label: '骑行'),
-          NavigationDestination(icon: Icon(Icons.bluetooth), label: '车辆'),
-        ],
       ),
     );
   }

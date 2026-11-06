@@ -7,6 +7,7 @@ import '../../features/device/presentation/device_page.dart';
 import '../../features/map/presentation/map_page.dart';
 import '../../features/ride/presentation/ride_list_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import 'main_shell.dart';
 
 /// 路由表。
 ///
@@ -16,17 +17,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/map',
     routes: [
-      GoRoute(
-        path: '/map',
-        builder: (context, state) => const MapPage(),
-      ),
-      GoRoute(
-        path: '/rides',
-        builder: (context, state) => const RideListPage(),
-      ),
-      GoRoute(
-        path: '/device',
-        builder: (context, state) => const DevicePage(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            MainShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/map',
+                builder: (context, state) => const MapPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/rides',
+                builder: (context, state) => const RideListPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/device',
+                builder: (context, state) => const DevicePage(),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: '/device/pair',

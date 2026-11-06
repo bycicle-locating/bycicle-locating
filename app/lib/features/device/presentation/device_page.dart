@@ -20,7 +20,7 @@ class DevicePage extends StatelessWidget {
             title: const Text('绑定设备'),
             subtitle: const Text('触碰车上的 NFC 标签完成绑定'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/device/pair'),
+            onTap: () => context.push('/device/pair'),
           ),
           const Divider(height: 1),
           const ListTile(

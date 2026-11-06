@@ -2,18 +2,18 @@
 
 Flutter 手机端。架构约定为 **Riverpod + feature-first**。
 
-> **验证状态**：✅ 已在 Flutter 3.44 / Dart 3.10（容器内）通过 `flutter analyze`（0 issue）、
-> `flutter test`（8 项）、`dart format --set-exit-if-changed`。
+> **验证状态**：✅ 已在 Flutter stable 下通过 `flutter analyze`（0 issue）、`flutter test`（8 项）、
+> `dart format --set-exit-if-changed`；`flutter build apk --debug` 通过（见 PR #9 自检）。
 >
-> ⚠️ **还没有平台工程目录**（`android/`、`ios/` 等）。因此能分析、能跑单测，但**不能打包**。
-> 首次运行前必须生成，且要先把 `<org>` 换成你自己的反向域名（`com.example` 之后很难改）：
+> ✅ **Android 平台工程已生成**（`android/`，applicationId `top.byciclelocating.app`），可直接构建 debug APK。
+> **iOS 尚未生成**；需要时执行（先把 `<org>` 换成自己的反向域名，`com.example` 之后很难改）：
 
 ```bash
 cd app
-flutter create --platforms=android,ios --org com.yourorg --project-name bkl_app .
+flutter create --platforms=ios --org <你的域名> --project-name bkl_app .
 ```
 
-生成后会多出 `android/`、`ios/` 等目录，`lib/` 与 `test/` 不受影响（已存在不会被覆盖）。
+`lib/` 与 `test/` 不受影响（已存在不会被覆盖）。
 
 ## 当前状态
 
@@ -25,7 +25,8 @@ flutter create --platforms=android,ios --org com.yourorg --project-name bkl_app 
 | `core/ble` / `core/nfc` 插件接入 | ⛔ 接口 + 桩（M1） |
 | 地图、骑行列表、实时位置 | ⛔ 占位页 |
 | 登录 / JWT | ⛔ 开发身份（M1） |
-| `android/`、`ios/` 平台工程 | ⛔ 需用 `flutter create` 生成（见上） |
+| `android/` 平台工程 | ✅ 可构建 debug APK（applicationId `top.byciclelocating.app`） |
+| `ios/` 平台工程 | ⛔ 待生成（见上） |
 
 ## 命令
 
@@ -35,9 +36,18 @@ flutter analyze                    # 必须 0 issue（已验证）
 dart format --set-exit-if-changed .
 flutter test                       # 8 项，已验证
 
-# 连本机后端（默认就是 127.0.0.1:8080，可省略）
+# 构建 Android debug APK
+flutter build apk --debug
+
+# Android 模拟器连本机后端：模拟器里的 127.0.0.1 是手机自己，要用 10.0.2.2
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+
+# 真机连本机后端：换成电脑的局域网 IP（与手机同一网段）
 flutter run --dart-define=API_BASE_URL=http://192.168.1.10:8080
 ```
+
+> Debug 构建通过 `android/app/src/debug/res/xml/network_security_config.xml` 放行明文 HTTP；
+> release 不包含该配置，后端必须用 HTTPS。
 
 ## 结构
 
