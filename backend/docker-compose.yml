@@ -118,7 +118,7 @@ services:
 
   postgres:
     profiles: ["deps"]
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     restart: unless-stopped
     environment:
       POSTGRES_USER: bkl
@@ -140,7 +140,7 @@ services:
   # 一次性迁移任务：schema SQL 在容器内用 psql 执行，应用启动只做 CheckSchema。
   migrate:
     profiles: ["deps"]
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     restart: "no"
     depends_on:
       postgres:
