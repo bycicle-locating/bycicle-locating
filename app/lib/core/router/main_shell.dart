@@ -17,6 +17,7 @@ class MainShell extends StatelessWidget {
         children: [
           Expanded(child: navigationShell),
           CupertinoTabBar(
+            height: 64,
             currentIndex: navigationShell.currentIndex,
             onTap: (index) => navigationShell.goBranch(index),
             items: const [
