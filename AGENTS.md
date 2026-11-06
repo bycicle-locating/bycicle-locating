@@ -13,20 +13,27 @@
 |---|---|---|---|
 | `app/` | 手机端：绑定、地图、骑行记录 | Flutter + Riverpod + go_router | 骨架，无插件接入 |
 | `firmware/` | 车载硬件：采样、离线缓存、上报 | ESP-IDF v5.x (C) + NimBLE | 骨架，硬件模块为桩 |
-| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.22，**当前只用标准库** | 骨架，内存存储 |
+| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.27，pgx + x/crypto/argon2 | M1：Postgres 用户/设备 + JWT；MQTT 仍为桩 |
 | `docs/` | 契约与设计 | Markdown | **跨端唯一真相** |
 
 硬件（**已实测**，见 `docs/hardware.md` §0）：**ESP32-S3**（8 MB flash / 带 PSRAM）+ Quectel **EC800MCNGB**
 （Cat.1，GNSS 可用）+ **ST25DV16K** NFC 标签（I²C + Type 5）+ IMU。
 板上当前跑的是 **MicroPython v1.29.0**，不是本项目固件。
 
+**联调环境**：开发与联调统一使用 `https://bycicle-locating.top`（部署在公网服务器上，
+服务器地址与 SSH 访问见私有运维记录，不写入仓库）。设备通过 EC800M 4G 上网，处于运营商 CGNAT 之后，
+**无法加入开发机所在局域网**；不要按“设备与手机同 WiFi”设计联调。部署与访问方式见
+[docs/deployment.md](docs/deployment.md)。公网入口已启用 Cloudflare Access：浏览器需邮箱登录，
+联调脚本需服务令牌；服务令牌只存在于服务器 `.env`，不写入仓库。
+
 **当前处于 M0**：接口与文档齐全，业务逻辑与硬件驱动未实现，见 `docs/roadmap.md`。
 
 ## 2. 命令
 
 > **验证状态（2026-10-30）**
-> - `backend/`：✅ `go build` / `go vet` / `go test` / `gofmt -l` 全过（`golang:1.22` 容器），
+> - `backend/`：✅ `go build` / `go vet` / `go test` / `gofmt -l` 全过（`golang:1.27` 容器），
 >   绑定接口冒烟覆盖 200 / 409 / 403 / 401。
+> - `backend/`：✅ Docker Compose 部署（nginx → backend）全链路 e2e 通过（2026-11-06）。
 > - `app/`：✅ `flutter analyze`（0 issue）、`flutter test`（8 项）、`dart format` 全过；
 >   `android/` 平台工程已生成并通过 `flutter build apk --debug`（见 app/README）。
 >   ⚠️ **`ios/` 平台目录仍缺**，iOS 打包前需 `flutter create --platforms=ios`。
@@ -34,15 +41,17 @@
 > - `firmware/` 的 ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`）：⛔ **尚未编译验证**。
 > - **硬件 bring-up 已通过**（2026-10-30）：ESP32-S3 + EC800MCNGB，SIM READY、信号 31、网络已注册、
 >   GNSS 可开启；UART 为 GPIO17(TX)/GPIO16(RX)。详见 `docs/hardware.md` §0。
-> - 本机没有 Go / Flutter / ESP-IDF，但有 Docker：可用 `golang:1.22`、`ghcr.io/cirruslabs/flutter:stable`、
+> - 本机没有 Go / Flutter / ESP-IDF，但有 Docker：可用 `golang:1.27`、`ghcr.io/cirruslabs/flutter:stable`、
 >   `gcc:13` 三个镜像完成验证，不必装本地工具链。ESP-IDF 仍需本地安装或专用镜像。
 
 ```bash
 # 后端
 cd backend
+cp .env.example .env                                            # 填 CLAIM_PEPPER
 go build ./... && go vet ./... && go test ./...
-APP_ENV=dev DEV_SEED_CLAIM=7QK2M5XJ4TZP6RWN go run ./cmd/server   # 无需 DB/broker
-docker compose up -d                                            # 本地 mosquitto + postgres
+set -a; . ./.env; set +a; go run ./cmd/server                   # 直接跑二进制，无需 DB/broker
+docker compose up -d --build --wait                             # nginx + backend
+docker compose --profile deps up -d                             # 本地 mosquitto + postgres（先在 .env 填 POSTGRES_PASSWORD）
 
 # 手机端
 cd app
@@ -90,8 +99,9 @@ idf.py set-target esp32s3 && idf.py build
 - **SQL 只出现在 `store` 实现里**；接口不得暴露 `pgx`/`sql.Row`。
 - **幂等靠主键**：`INSERT ... ON CONFLICT (device_id, seq) DO NOTHING`，不做"先查再插"。
 - 绑定必须**原子**：校验声明码 + 占用该码 + 写车主在同一次写操作内（data-model.md §3）。
-- 新增依赖前先想清楚：当前骨架零依赖，`go build ./...` 不联网即可通过。
-- `APP_ENV=prod` 会在缺 JWT 时**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
+- 后端依赖面保持最小：Postgres 用 `pgx`，密码哈希用 `x/crypto/argon2`；新增依赖前先说清楚理由。
+- `APP_ENV=prod` 缺 `DATABASE_URL` 或 `JWT_SECRET` 会**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
+- 配置 `DATABASE_URL` 后必须显式设置独立 `JWT_SECRET`；公开的开发默认 secret 只允许纯内存 dev。
 
 ### 3.4 手机端
 
@@ -159,7 +169,7 @@ PR 标题、提交信息、注释与文档，只写**结果**和**将来有用�
 - **C**：`esp_err_t` 返回错误码；结构体用定点整数表示物理量；回调/中断里不阻塞、不分配内存。
 - **注释**：只写代码表达不了的约束（为什么这样、不能怎样）。不写"这行做了什么"。
 - **提交**：`<type>(<scope>): <中文简述>`，见 `CONTRIBUTING.md`。
-- **合并**：`main` 受**服务端强制**保护——开分支 → 推分支 → PR → 三个检查全绿 → squash 合并。
+- **合并**：`main` 受**服务端强制**保护——开分支 → 推分支 → PR → 四个检查全绿 → squash 合并。
   `enforce_admins=true`，管理员直推也会被 `GH006` 拒绝，没有本地可绕过的开关。
   应急时才由管理员临时停用保护，见 `CONTRIBUTING.md` §1.1。
 

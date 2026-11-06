@@ -8,7 +8,7 @@
 | 规则 | 值 | 理由 |
 |---|---|---|
 | 必须走 PR | 是，审批数 **0** | 单人维护：GitHub 不允许自我批准，设成 1 会把作者锁在门外；有第二人后改成 1 |
-| 必需状态检查 | `build`、`analyze-and-test`、`host-tests` | 与三个 workflow 的 **job 名**一致，改 job 名必须同步改这里 |
+| 必需状态检查 | `build`、`docker-e2e`、`analyze-and-test`、`host-tests` | 与三个 workflow 的 **job 名**一致，改 job 名必须同步改这里 |
 | 严格模式（strict） | 是 | 分支落后 `main` 时必须先 rebase，防止"本地绿、合并后红" |
 | 线性历史 | 是 | 配合 squash-only 的合并设置，`main` 保持一条直线 |
 | 禁止强推 / 禁止删除 | 是 / 是 | 历史不可改写，分支不可误删 |
@@ -25,7 +25,7 @@
 ```
 remote: Bypassed rule violations for refs/heads/main:
 remote: - Changes must be made through a pull request.
-remote: - 3 of 3 required status checks are expected.
+remote: - 4 of 4 required status checks are expected.
 ```
 
 也就是说 `false` 时规则只是"提醒"。改成 `true` 后同样的操作变成硬拒绝：
@@ -34,7 +34,8 @@ remote: - 3 of 3 required status checks are expected.
 
 ## 2. 依赖这套规则的两个前提
 
-1. **检查名必须真实存在**。`build` / `analyze-and-test` / `host-tests` 是三个 workflow 的 job 名；
+1. **检查名必须真实存在**。`build` / `docker-e2e`（backend）、`analyze-and-test`（app）、
+   `host-tests`（firmware）是三个 workflow 的四个 job 名；
    重命名 job 会让对应检查永远处于 `Expected`，所有 PR 都合不进来。
 2. **三个 workflow 不加 `paths` 过滤**。只改文档的 PR 若跳过某个 workflow，那个必需检查同样永远
    凑不齐。这也是它们现在每次都跑的原因。
@@ -58,7 +59,7 @@ gh api -X PUT repos/bycicle-locating/bycicle-locating/branches/main/protection -
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["build", "analyze-and-test", "host-tests"]
+    "contexts": ["build", "docker-e2e", "analyze-and-test", "host-tests"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
