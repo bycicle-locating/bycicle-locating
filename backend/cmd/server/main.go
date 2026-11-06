@@ -17,12 +17,14 @@ import (
 	"time"
 
 	"github.com/bycicle-locating/backend/internal/api"
+	"github.com/bycicle-locating/backend/internal/auth"
 	"github.com/bycicle-locating/backend/internal/config"
 	"github.com/bycicle-locating/backend/internal/device"
 	"github.com/bycicle-locating/backend/internal/ingest"
 	"github.com/bycicle-locating/backend/internal/mqtt"
 	"github.com/bycicle-locating/backend/internal/protocol"
 	"github.com/bycicle-locating/backend/internal/store"
+	"github.com/bycicle-locating/backend/internal/user"
 )
 
 // demoDeviceID 是开发环境种子设备。
@@ -47,9 +49,11 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// TODO(M1): 换成 Postgres 实现；接口已经按 SQL 可实现的方式定义好。
-	st := store.NewMemory()
-	log.Warn("使用内存存储，重启后数据全部丢失（仅适用于开发）")
+	st, closeStore, err := openStore(ctx, cfg, log)
+	if err != nil {
+		return err
+	}
+	defer closeStore()
 
 	hasher, err := device.NewHMACHasher(cfg.ClaimPepper)
 	if err != nil {
@@ -59,17 +63,33 @@ func run() error {
 		log.Warn("CLAIM_PEPPER 使用开发默认值，生产环境必须覆盖")
 	}
 
+	users, err := user.New(st, user.NewArgon2id())
+	if err != nil {
+		return err
+	}
+	tokens, err := auth.NewTokens(cfg.JWTSecret, cfg.JWTTTL, cfg.JWTIssuer)
+	if err != nil {
+		return err
+	}
+	if cfg.IsDev() && cfg.JWTSecret == "dev-only-jwt-secret-please-change-me" {
+		log.Warn("JWT_SECRET 使用开发默认值，仅限纯内存开发模式")
+	}
+
 	devices := device.New(st, hasher)
 	ing := ingest.New(st, ingest.WithLogger(log))
 
 	if cfg.IsDev() && cfg.DevSeedClaim != "" {
-		if err := seedDemoDevice(st, hasher, cfg.DevSeedClaim); err != nil {
+		seeder, ok := st.(store.DeviceSeeder)
+		if !ok {
+			log.Warn("当前存储不支持演示设备种子，跳过")
+		} else if err := seedDemoDevice(ctx, seeder, hasher, cfg.DevSeedClaim); err != nil {
 			return err
+		} else {
+			// 声明码是凭据，不能进日志；需要时从 DEV_SEED_CLAIM 读取。
+			log.Warn("已注册演示设备（仅开发）",
+				"device", demoDeviceID,
+				"hint", "声明码见 DEV_SEED_CLAIM 环境变量")
 		}
-		// 声明码是凭据，不能进日志；需要时从 DEV_SEED_CLAIM 读取。
-		log.Warn("已注册演示设备（仅开发）",
-			"device", demoDeviceID,
-			"hint", "声明码见 DEV_SEED_CLAIM 环境变量")
 	}
 
 	bus := mqtt.NewLogBus(log)
@@ -82,14 +102,14 @@ func run() error {
 		return err
 	}
 
-	auth, err := buildAuth(cfg, log)
+	authn, err := buildAuth(cfg, tokens, log)
 	if err != nil {
 		return err
 	}
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(devices, auth, log).Routes(),
+		Handler:           api.New(devices, users, tokens, authn, log).Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -162,21 +182,49 @@ func wireIngest(ctx context.Context, bus mqtt.Bus, ing *ingest.Service, log *slo
 	return nil
 }
 
-func buildAuth(cfg config.Config, log *slog.Logger) (api.Authenticator, error) {
-	if !cfg.IsDev() {
-		// 生产必须先有真正的鉴权，否则任何人都能绑定设备。
-		return nil, errors.New("main: 生产鉴权（JWT）尚未实现，M1 补齐后再启用 APP_ENV=prod")
+func openStore(ctx context.Context, cfg config.Config, log *slog.Logger) (store.Store, func(), error) {
+	if cfg.DatabaseURL != "" {
+		pg, err := store.NewPostgres(ctx, cfg.DatabaseURL)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := pg.CheckSchema(ctx); err != nil {
+			pg.Close()
+			return nil, nil, err
+		}
+		log.Info("使用 Postgres 存储")
+		return pg, pg.Close, nil
 	}
-	log.Warn("使用开发鉴权：请求头 X-Dev-User 即身份，任何人不带凭据也算登录")
-	return api.DevAuthenticator{FallbackUser: cfg.DevUserID}, nil
+	if !cfg.IsDev() {
+		return nil, nil, errors.New("main: 生产环境必须配置 DATABASE_URL")
+	}
+	log.Warn("使用内存存储，重启后数据全部丢失（仅适用于开发）")
+	return store.NewMemory(), func() {}, nil
 }
 
-func seedDemoDevice(mem *store.Memory, hasher device.Hasher, claim string) error {
+func buildAuth(cfg config.Config, tokens *auth.Tokens, log *slog.Logger) (api.Authenticator, error) {
+	jwtAuth := api.JWTAuthenticator{Tokens: tokens}
+	if cfg.IsDev() && cfg.DatabaseURL == "" {
+		log.Warn("开发环境允许 X-Dev-User 回退；配置 DATABASE_URL 后只认 JWT")
+		return api.ChainAuthenticator{
+			JWT: jwtAuth,
+			Dev: api.DevAuthenticator{FallbackUser: cfg.DevUserID},
+		}, nil
+	}
+	if cfg.IsDev() {
+		log.Warn("已配置 DATABASE_URL，开发身份回退关闭，只认 JWT")
+	}
+	return jwtAuth, nil
+}
+
+func seedDemoDevice(ctx context.Context, seeder store.DeviceSeeder, hasher device.Hasher, claim string) error {
 	hash, err := hasher.Hash(strings.ToUpper(claim))
 	if err != nil {
 		return fmt.Errorf("main: 计算演示声明码哈希: %w", err)
 	}
-	mem.PutDevice(store.Device{ID: demoDeviceID, Model: "BKL1"}, hash)
+	if err := seeder.SeedDevice(ctx, store.Device{ID: demoDeviceID, Model: "BKL1"}, hash); err != nil {
+		return fmt.Errorf("main: 注册演示设备: %w", err)
+	}
 	return nil
 }
 

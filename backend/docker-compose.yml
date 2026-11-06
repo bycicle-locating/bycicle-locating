@@ -14,6 +14,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
     image: bicycle-locating/backend:${BKL_IMAGE_TAG:-dev}
     restart: unless-stopped
     environment:
@@ -23,8 +25,19 @@ services:
       CLAIM_PEPPER: ${CLAIM_PEPPER:?请在 .env 中设置 CLAIM_PEPPER}
       DEV_USER_ID: ${DEV_USER_ID:-}
       DEV_SEED_CLAIM: ${DEV_SEED_CLAIM:-}
+      # 为空时 dev 回退内存；prod 必须设置。容器内主机名是 postgres，不是 127.0.0.1。
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_TTL: ${JWT_TTL:-24h}
+      JWT_ISSUER: ${JWT_ISSUER:-bicycle-locating}
     expose:
       - "8080"
+    # deps profile 启用时先跑完迁移再启动；默认 profile 没有 migrate，
+    # required:false 让纯内存模式仍然可以直接 up。
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+        required: false
     networks: [edge, data]
     read_only: true
     tmpfs:
@@ -105,7 +118,7 @@ services:
 
   postgres:
     profiles: ["deps"]
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
     restart: unless-stopped
     environment:
       POSTGRES_USER: bkl
@@ -122,6 +135,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: *default-logging
+
+  # 一次性迁移任务：schema SQL 在容器内用 psql 执行，应用启动只做 CheckSchema。
+  migrate:
+    profiles: ["deps"]
+    image: postgres:16-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+    volumes:
+      - ./internal/store/migrations:/migrations:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        [ -n "$$DATABASE_URL" ] || { echo "DATABASE_URL 为空" >&2; exit 1; }
+        for f in /migrations/*.sql; do
+          echo "applying $$f"
+          psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -1 -f "$$f"
+        done
+    networks: [data]
     logging: *default-logging
 
 networks:
