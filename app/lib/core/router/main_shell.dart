@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 
 /// 三个一级 tab 的骨架：底部导航常驻，分支栈由 go_router 管理。
@@ -12,15 +12,28 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (index) => navigationShell.goBranch(index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), label: '地图'),
-          NavigationDestination(icon: Icon(Icons.pedal_bike), label: '骑行'),
-          NavigationDestination(icon: Icon(Icons.bluetooth), label: '车辆'),
+    return CupertinoPageScaffold(
+      child: Column(
+        children: [
+          Expanded(child: navigationShell),
+          CupertinoTabBar(
+            currentIndex: navigationShell.currentIndex,
+            onTap: (index) => navigationShell.goBranch(index),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(CupertinoIcons.map_fill),
+                label: '地图',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(CupertinoIcons.clock_fill),
+                label: '骑行',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(CupertinoIcons.car_fill),
+                label: '车辆',
+              ),
+            ],
+          ),
         ],
       ),
     );

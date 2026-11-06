@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 /// 主题集中在这里，页面里不要写死颜色。
 class AppTheme {
@@ -7,19 +7,46 @@ class AppTheme {
   /// 与产品主色一致（骑行绿）。
   static const Color seed = Color(0xFF2E7D32);
 
-  static ThemeData light() {
-    return ThemeData(
-      colorSchemeSeed: seed,
-      useMaterial3: true,
-      brightness: Brightness.light,
+  /// 深色模式下需要提亮，保证与深色背景的对比度。
+  static const CupertinoDynamicColor primary =
+      CupertinoDynamicColor.withBrightness(
+    color: seed,
+    darkColor: Color(0xFF66BB6A),
+  );
+
+  /// 填充按钮的前景：深色模式下亮绿底用黑字，满足 4.5:1 对比度。
+  static const CupertinoDynamicColor primaryContrasting =
+      CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFFFFFFF),
+    darkColor: Color(0xFF000000),
+  );
+
+  /// 不锁 brightness，其余颜色交给 Cupertino 的系统动态色跟随明暗模式。
+  static const CupertinoThemeData cupertino = CupertinoThemeData(
+    primaryColor: primary,
+    primaryContrastingColor: primaryContrasting,
+  );
+
+  /// 中文在 13–17pt 下容易显得拥挤，正文统一加字距与行高。
+  static const double tracking = 0.35;
+  static const double bodyHeight = 1.5;
+
+  static TextStyle secondaryText(BuildContext context, {double fontSize = 13}) {
+    return TextStyle(
+      fontSize: fontSize,
+      height: bodyHeight,
+      letterSpacing: tracking,
+      color: CupertinoColors.secondaryLabel.resolveFrom(context),
     );
   }
 
-  static ThemeData dark() {
-    return ThemeData(
-      colorSchemeSeed: seed,
-      useMaterial3: true,
-      brightness: Brightness.dark,
+  static TextStyle sectionHeader(BuildContext context) {
+    return TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.5,
+      height: 1.2,
+      color: CupertinoColors.secondaryLabel.resolveFrom(context),
     );
   }
 }
