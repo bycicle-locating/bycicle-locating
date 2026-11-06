@@ -15,7 +15,7 @@
 服务器地址与 SSH 访问方式放在私有运维记录里，不写入 public 仓库；
 私钥、密码、token 同样不写入仓库和文档。
 
-App、固件测试脚本、本地 curl 都连接这个域名；
+联调脚本、本地 curl 都连接这个域名（App 在 JWT 落地前仍连本机后端）；
 不要设计“设备连开发机热点 / 同一 WiFi”的联调流程。
 
 ## 2. 访问入口
@@ -28,7 +28,8 @@ App、固件测试脚本、本地 curl 都连接这个域名；
 
 健康检查：`GET /healthz`。公网 `/healthz` 也在 Access 后面；容器健康检查走内网，不受影响。
 
-- App 的 API base URL、联调脚本优先使用 `https://bycicle-locating.top`。
+- 联调脚本优先使用 `https://bycicle-locating.top`（需 Access 服务令牌）。
+  App 目前没有服务令牌/JWT，暂继续连本机后端；JWT 落地后再切到域名。
 - 任何公网请求都需要 Cloudflare Access 登录态，或
   `CF-Access-Client-Id` / `CF-Access-Client-Secret` 服务令牌头；当前 App 与固件尚未接入 JWT，
   联调脚本使用服务令牌。
@@ -112,7 +113,7 @@ BKL_E2E_PORT=18080 bash deploy/e2e.sh
 
 - 应用：`bicycle-locating-api`，自托管，目标 `bycicle-locating.top`（全路径）。
 - 策略：
-  - `owner-email`（Allow）：`Hesitate-p@outlook.com`；
+  - `owner-email`（Allow）：联调成员邮箱（在 Zero Trust 面板维护，不写入仓库）；
   - `service-token`（Service Auth）：服务令牌 `bkl-dev-smoke`（有效期 1 年）。
 - 未带登录态或令牌的请求返回 302，跳转
   `https://crimson-shadow-fd5f.cloudflareaccess.com/cdn-cgi/access/login/...`。

@@ -51,7 +51,7 @@ cp .env.example .env                                            # 填 CLAIM_PEPP
 go build ./... && go vet ./... && go test ./...
 set -a; . ./.env; set +a; go run ./cmd/server                   # 直接跑二进制，无需 DB/broker
 docker compose up -d --build --wait                             # nginx + backend
-docker compose --profile deps up -d                             # 本地 mosquitto + postgres
+docker compose --profile deps up -d                             # 本地 mosquitto + postgres（先在 .env 填 POSTGRES_PASSWORD）
 
 # 手机端
 cd app

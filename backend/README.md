@@ -45,7 +45,7 @@ docker compose up -d --build --force-recreate --wait
 
 - 对外端口由 `BKL_HTTP_PORT` 控制，默认 **32525**；`BKL_BIND_ADDR` 默认 `127.0.0.1`，直连需显式放开。
 - `.env` 只由 Compose 读取；服务本身只认进程环境变量。
-- `CLAIM_PEPPER` 必填且至少 16 字节；`POSTGRES_PASSWORD` 也必填（Compose 解析时校验），示例文件不提供默认值。
+- `CLAIM_PEPPER` 必填且至少 16 字节；启用 `deps` profile 时还需 `POSTGRES_PASSWORD`，示例文件不提供默认值。
 - TLS 由 Cloudflare Tunnel 终止；nginx 只在内网监听 HTTP。
 - 若服务器在中国大陆云厂商，域名需完成 ICP 备案；未备案时云厂商边缘会按 Host 拦截
   （阿里云返回 `Server: Beaver` 的 403），换非标端口也不能绕过，与 nginx / 后端无关。

@@ -109,7 +109,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: bkl
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
+      # 仅 deps profile 需要；默认 profile 不启动 postgres，留空不影响。
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: bike_locating
     ports:
       - "127.0.0.1:5432:5432"

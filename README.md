@@ -52,7 +52,7 @@ bash scripts/check-env.sh   # 先看缺哪些工具链
 cd backend && cp .env.example .env   # 填 CLAIM_PEPPER
 go build ./... && go test ./...
 docker compose up -d --build --wait  # nginx + backend
-docker compose --profile deps up -d  # 可选：本地 broker + postgres
+docker compose --profile deps up -d  # 可选；需先在 .env 填 POSTGRES_PASSWORD
 
 # 手机端（需先安装 flutter）
 cd app && flutter pub get && flutter analyze && flutter test
