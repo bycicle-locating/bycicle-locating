@@ -126,6 +126,7 @@ erDiagram
 
 索引：`(device_id, ts DESC)`；`(type, ts DESC)`；唯一索引 `(device_id, seq)`。
 事件与轨迹点走同一条 QoS/重传链路，插入时按 `(device_id, seq)` 去重（`ON CONFLICT DO NOTHING`）。
+迁移在建唯一索引前会清掉历史重复（保留 `id` 最大的一条），兼容旧的纯追加库。
 
 ### device_status
 

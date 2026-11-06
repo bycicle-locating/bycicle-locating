@@ -94,6 +94,7 @@ echo "== 用户 API 冒烟 =="
 BASE_URL="http://127.0.0.1:$port" \
 CLAIM_CODE="$claim" \
 DEVICE_ID="$device" \
+CHECK_RATE_LIMIT=1 \
   bash "$script_dir/user-smoke.sh"
 
 # 重建 backend 会分配新 IP；验证 nginx 的 resolver 配置能让链路自动恢复。

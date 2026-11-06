@@ -282,6 +282,7 @@ type bindRequest struct {
 }
 
 func (s *Server) handleBind(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")
@@ -307,6 +308,7 @@ func (s *Server) handleBind(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUnbind(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")
@@ -325,6 +327,7 @@ func (s *Server) handleUnbind(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")

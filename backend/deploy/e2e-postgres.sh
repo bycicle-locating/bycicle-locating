@@ -72,6 +72,16 @@ fi
 BASE_URL="http://127.0.0.1:$port" \
 DEVICE_ID=BKL-2026-000001 \
 CLAIM_CODE="$claim" \
+CHECK_RATE_LIMIT=1 \
   bash "$script_dir/user-smoke.sh"
+
+# HTTP 冒烟走不到 ingest/事件/状态路径；直接对宿主端口跑 Store 集成测试。
+if command -v go >/dev/null 2>&1; then
+  echo "== Postgres Store 单测 =="
+  TEST_DATABASE_URL="postgres://bkl:$pgpass@127.0.0.1:5432/bike_locating?sslmode=disable" \
+    go test ./internal/store -run TestPostgresStore -count=1
+else
+  echo "  跳过 Postgres Store 单测：未安装 Go（CI 会执行）"
+fi
 
 echo "== Postgres 全链路测试通过 =="

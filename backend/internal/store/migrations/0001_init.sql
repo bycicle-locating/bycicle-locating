@@ -104,6 +104,12 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_device_ts_idx ON events (device_id, ts DESC);
 CREATE INDEX IF NOT EXISTS events_type_ts_idx ON events (type, ts DESC);
 -- 事件与轨迹点走同一条 QoS/重传链路，按 (device_id, seq) 去重。
+-- 兼容旧库：建唯一索引前先清掉历史重复，保留 id 最大的一条。
+DELETE FROM events a
+USING events b
+WHERE a.device_id = b.device_id
+  AND a.seq = b.seq
+  AND a.id < b.id;
 CREATE UNIQUE INDEX IF NOT EXISTS events_device_seq_idx ON events (device_id, seq);
 
 CREATE TABLE IF NOT EXISTS device_status (

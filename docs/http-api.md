@@ -139,7 +139,7 @@
 - Claims：`sub`（用户 UUID）、`email`、`iss`、`iat`、`exp`；`sub` 不是合法 UUID 时按无效 token 拒绝。
 - 默认有效期 24 小时；由服务端 `JWT_TTL` 配置。
 - token 只放 `Authorization` 头，不放在 URL/query。
-- 用户接口响应带 `Cache-Control: no-store`，避免 PII 被中间层缓存。
+- 用户与设备接口响应带 `Cache-Control: no-store`，避免 PII 被中间层缓存。
 - 服务端日志不记录请求体、密码或 token。
 
 ## 5. 当前限制

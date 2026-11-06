@@ -65,5 +65,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Postgres 全链路 e2e（迁移 → JWT → 用户/设备）
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Postgres 全链路 e2e（迁移 → JWT → 用户/设备 → Store）
         run: bash deploy/e2e-postgres.sh

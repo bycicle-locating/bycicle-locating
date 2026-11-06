@@ -137,6 +137,33 @@ if [ -n "$CLAIM_CODE" ]; then
   expect_body '"forbidden"' "解绑后错误码"
 fi
 
+if [ "${CHECK_RATE_LIMIT:-0}" = "1" ]; then
+  echo "== 认证限流 =="
+  # 独立 CF-Connecting-IP 隔离限流桶，避免影响上面的正常请求。
+  # 用非法 JSON 触发 400，避免为限流测试白跑 argon2。
+  rate_limited=0
+  for _ in 1 2 3 4 5 6; do
+    code=$(curl -sS --max-time 10 -o "$tmp/rate-body" -w '%{http_code}' \
+      -X POST -H 'Content-Type: application/json' \
+      -H 'CF-Connecting-IP: 203.0.113.99' \
+      "${access_args[@]}" \
+      --data 'not-json' \
+      "$BASE_URL/v1/auth/login" || true)
+    if [ "$code" = "429" ]; then
+      rate_limited=1
+      if grep -q '"error":"rate_limited"' "$tmp/rate-body"; then
+        pass "认证限流返回 429 JSON"
+      else
+        fail "认证限流响应体不符：$(cat "$tmp/rate-body")"
+      fi
+      break
+    fi
+  done
+  if [ "$rate_limited" -eq 0 ]; then
+    fail "连续认证请求未触发 429"
+  fi
+fi
+
 if [ "$failures" -ne 0 ]; then
   echo "== 失败 $failures 项 ==" >&2
   exit 1

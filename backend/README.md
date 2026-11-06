@@ -96,9 +96,9 @@ bash deploy/e2e-postgres.sh
 服务器本机请用 `http://127.0.0.1:32525` 直连 nginx。
 
 e2e 覆盖 healthz、绑定 200、重复绑定 409、错误声明码 403、非车主读写 403、解绑 204、
-解绑后不可见、用户注册/登录/资料/我的设备，以及 backend 重建后 nginx 自动恢复。
-`e2e-postgres.sh` 会额外验证迁移、Postgres Store 与 JWT-only 模式；CI 每次 PR 都会跑，
-但不在默认分支保护必需检查里。
+解绑后不可见、用户注册/登录/资料/我的设备、认证限流 429 JSON，以及 backend 重建后 nginx 自动恢复。
+`e2e-postgres.sh` 会额外验证迁移、JWT-only 模式和 Postgres Store 单测（本机需装 Go；CI 会跑）；
+CI 每次 PR 都会跑，但不在默认分支保护必需检查里。
 
 ### 依赖服务
 
