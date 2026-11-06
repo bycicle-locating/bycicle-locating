@@ -66,6 +66,7 @@ flowchart TB
 | `track/ringbuf` | `rb_push(rec)` / `rb_peek_batch()` / `rb_ack(n)` | flash 分页、掉电一致性、容量回收、丢弃计数 |
 | `track/uploader` | `uploader_run()` | 批量打包、退避重试、离线状态发布、睡眠前收尾 |
 | `ble/ble_status` | `ble_publish_status()` / `ble_set_enabled(bool)` | GATT 表、分片重组、广播开关 |
+| `audio/audio_out` | `audio_play(pattern)` / `audio_find_me()` | I²S 通道装配、PCM 分块写入、空闲关时钟、音量与波形（`tone_gen` 纯 C 合成，主机可测） |
 
 **只在 `modem/` 内出现 AT 指令字符串**。其他模块调接口，不拼 AT。
 

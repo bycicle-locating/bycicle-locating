@@ -4,12 +4,13 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 上行协议见 [../docs/protocol.md](../docs/protocol.md)。
 
 > **验证状态**
-> - 纯 C 模块（`app_types` / `proto_encode` / `ringbuf` / `uploader`）：✅ 已用 gcc 13
->   （`-std=c11 -Wall -Wextra -Werror`）编译并通过主机单测，见 `test/host/test_core.c`。
+> - 纯 C 模块（`app_types` / `proto_encode` / `ringbuf` / `uploader` / `tone_gen`）：✅ 已用
+>   `-std=c11 -Wall -Wextra -Werror` 编译并通过主机单测，见 `test/host/test_core.c`
+>   与 `test/host/test_audio.c`。
 > - **硬件 bring-up（2026-10-30）**：✅ 模组 EC800MCNGB 已通过 UART1（GPIO17/16）验证——
 >   `AT` / `ATI` / `AT+CPIN?` / `AT+CSQ` / `AT+CREG?` / `AT+CGREG?` 全部正常，`AT+QGPS=1` 返回 OK。
 >   详见 `docs/hardware.md` §0。验证时板子跑的是 MicroPython，用的是 `scripts/at-probe.py`。
-> - ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`）：⛔ **尚未编译验证**，
+> - ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`、`audio/audio_out.c`）：⛔ **尚未编译验证**，
 >   编写时机器上没有 ESP-IDF。首次 `idf.py build` 预计需修少量编译错误。
 
 ## 实现状态
@@ -20,6 +21,8 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 | `main/proto/proto_encode` | ✅ 主机已验证 | 纯整数 JSON 编码，不依赖 `%f` |
 | `main/track/ringbuf` | ✅ 主机已验证 | 掉电安全环形缓冲，存储后端可替换 |
 | `main/track/uploader` | ✅ 主机已验证 | 批量/退避/成功后 commit |
+| `main/audio/tone_gen` | ✅ 主机已验证 | 整数相位累加器合成方波与提示音段序列 |
+| `main/audio/audio_out` | ⛔ 未编译 | I²S 数字功放输出（M1，等首次 `idf.py build`） |
 | `main/modem/modem_at` | ⛔ 桩 | AT 引擎（M1） |
 | `main/modem/modem_mqtt` | ⛔ 桩 | QMTOPEN/CONN/PUBEX（M1） |
 | `main/modem/modem_gnss` | ⛔ 桩 | QGPS 采样（M1） |
@@ -27,6 +30,10 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 | `main/power/power_mgr` | ⛔ 桩 | 睡眠与唤醒（M4） |
 
 标 ✅ 的模块不依赖任何 ESP-IDF 头文件，可以脱离硬件直接跑主机单测。
+
+提示音**不是**无源蜂鸣器：实物是 I²S 数字功放模块（见 `docs/hardware.md` §3.2），
+所以用 `i2s_std` 推 16 bit 单声道 PCM，**不能**用 LEDC/PWM 直驱；`tone_gen` 只算 PCM，
+主机上就能验证波形与时长，接上板子只需确认喇叭是否响。
 
 ## 命令
 
@@ -39,6 +46,11 @@ gcc -std=c11 -Wall -Wextra -Werror \
     main/track/ringbuf.c main/track/uploader.c -o test_core
 ./test_core        # 输出「全部主机单测通过」
 
+gcc -std=c11 -Wall -Wextra -Werror \
+    -I main -I main/audio \
+    test/host/test_audio.c main/audio/tone_gen.c -o test_audio
+./test_audio       # 输出「提示音主机单测全部通过」
+
 # 固件构建：一次性环境，安装 ESP-IDF v5.x 并
 . $IDF_PATH/export.sh
 
@@ -49,6 +61,9 @@ idf.py -p <PORT> flash monitor
 
 # 打开开机自检（合成数据跑一遍 ringbuf→encode→publish，只打日志）
 idf.py menuconfig        # 自行车定位设备 → 开机自检
+
+# 验证提示音接线（上电播一次找车音；默认关闭）
+idf.py menuconfig        # 自行车定位设备 → 开机播放一次找车提示音
 ```
 
 ## 分区
@@ -80,6 +95,8 @@ idf.py menuconfig        # 自行车定位设备 → 开机自检
 - `AT+QMTPUBEX` 是"等 `>` 再发裸数据"的两段式，别用一次 `bkl_at_cmd` 搞定。
 - 深度睡眠会清 RAM，`s_ring` 这类静态结构唤醒后必须重建并从 NVS 恢复。
 - BLE 单次写入只有 20 字节，MTU 协商在 Android/iOS 上行为不同（pairing.md §5.3）。
+- 提示音模块只有 `VCC/GND/LRCLK/BCLK/DIN` 接对、且 `SPK` 座上真的插了喇叭才会响；
+  只接电源时它是完全静音的（不是坏了）。`WS/SCK/SD` 是录音方向，固件不使用。
 
 ## 目录
 
@@ -90,6 +107,7 @@ main/
   Kconfig.projbuild  型号、间隔、自检开关
   proto/             线格式编码（与后端 internal/protocol 对偶）
   track/             离线缓冲与上报状态机
+  audio/             提示音：tone_gen 纯 C 合成 PCM，audio_out 走 I²S 数字功放
   modem/             EC800M：AT 引擎、MQTT、GNSS
   ble/               近场状态服务（无绑定能力）
   power/             睡眠策略
@@ -102,4 +120,5 @@ main/
 - [ ] `modem_mqtt` 的 QMTOPEN/CONN/PUBEX 与断线重连
 - [ ] `modem_gnss` 的 QGPSLOC 解析（注意 km/h → m/s）
 - [ ] 采集任务与上报任务分离，用事件组驱动
+- [ ] 首次 `idf.py build` 后真机验证 `audio_out`：I²S 接线（14/13/12）、音量、找车音可听距离
 - [ ] 扩充主机单测：满盘、掉电恢复、时区边界（`epoch_to_civil`）
