@@ -31,7 +31,7 @@ func (p *Postgres) CreateUser(ctx context.Context, u User) (User, error) {
 	out, err := scanUser(row)
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "users_email_key" {
 			return User{}, ErrEmailTaken
 		}
 		return User{}, err

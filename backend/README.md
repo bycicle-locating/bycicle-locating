@@ -44,9 +44,7 @@ docker compose up -d --build --wait        # dev 内存模式，重启丢数据
 docker compose ps
 curl -s "localhost:${BKL_HTTP_PORT:-32525}/healthz"
 
-# Postgres 持久化：先起库，再执行一次性迁移，最后起应用
-docker compose --profile deps up -d --wait postgres
-docker compose --profile deps run --rm migrate
+# Postgres 持久化：backend 的 depends_on 会先跑完 migrate
 docker compose --profile deps up -d --build --wait backend nginx
 
 # 更新代码后重建容器；不加 --force-recreate 时 compose 可能继续跑旧镜像
@@ -57,6 +55,7 @@ docker compose up -d --build --force-recreate --wait
 - `.env` 只由 Compose 读取；服务本身只认进程环境变量。
 - `CLAIM_PEPPER` 必填且至少 16 字节；`JWT_SECRET` 至少 32 字节；`POSTGRES_PASSWORD` 在启动 postgres 时必须设置。
 - `DATABASE_URL` 为空且 `APP_ENV=dev` 时回退内存；`APP_ENV=prod` 必须设置 `DATABASE_URL` 和 `JWT_SECRET`。
+  配置 `DATABASE_URL` 后必须显式设置独立 `JWT_SECRET`，公开的开发默认值会被拒绝。
   容器内主机名是 `postgres`，密码含特殊字符时需要 URL-encode。
 - `deploy/migrate` 是一次性 `psql` 任务，SQL 在 `internal/store/migrations/`；应用启动只做 schema 检查，不会自动建表。
 - TLS 由 Cloudflare Tunnel 终止；nginx 只在内网监听 HTTP。
@@ -98,7 +97,8 @@ bash deploy/e2e-postgres.sh
 
 e2e 覆盖 healthz、绑定 200、重复绑定 409、错误声明码 403、非车主读写 403、解绑 204、
 解绑后不可见、用户注册/登录/资料/我的设备，以及 backend 重建后 nginx 自动恢复。
-`e2e-postgres.sh` 会额外验证迁移、Postgres Store 与 JWT-only 模式；它不纳入必需 CI 检查。
+`e2e-postgres.sh` 会额外验证迁移、Postgres Store 与 JWT-only 模式；CI 每次 PR 都会跑，
+但不在默认分支保护必需检查里。
 
 ### 依赖服务
 

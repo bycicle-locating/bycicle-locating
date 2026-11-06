@@ -14,17 +14,18 @@ import (
 // 它把 Postgres 实现必须提供的保证（幂等、绑定原子性）也用同一套语义实现，
 // 因此 ingest/device 的测试可以直接跑在它上面。
 type Memory struct {
-	mu      sync.Mutex
-	now     func() time.Time
-	devices map[string]*Device
-	claims  map[string]string // deviceID -> 声明码哈希
-	users   map[string]User
-	emails  map[string]string // 小写邮箱 -> userID
-	seen    map[pointKey]struct{}
-	events  []Event
-	status  map[string]Status
-	points  map[string][]TelemetryPoint
-	binding []bindingRecord
+	mu        sync.Mutex
+	now       func() time.Time
+	devices   map[string]*Device
+	claims    map[string]string // deviceID -> 声明码哈希
+	users     map[string]User
+	emails    map[string]string // 小写邮箱 -> userID
+	seen      map[pointKey]struct{}
+	eventSeen map[pointKey]struct{}
+	events    []Event
+	status    map[string]Status
+	points    map[string][]TelemetryPoint
+	binding   []bindingRecord
 }
 
 type pointKey struct {
@@ -42,14 +43,15 @@ type bindingRecord struct {
 // NewMemory 创建一个空的内存存储。
 func NewMemory() *Memory {
 	return &Memory{
-		now:     time.Now,
-		devices: make(map[string]*Device),
-		claims:  make(map[string]string),
-		users:   make(map[string]User),
-		emails:  make(map[string]string),
-		seen:    make(map[pointKey]struct{}),
-		status:  make(map[string]Status),
-		points:  make(map[string][]TelemetryPoint),
+		now:       time.Now,
+		devices:   make(map[string]*Device),
+		claims:    make(map[string]string),
+		users:     make(map[string]User),
+		emails:    make(map[string]string),
+		seen:      make(map[pointKey]struct{}),
+		eventSeen: make(map[pointKey]struct{}),
+		status:    make(map[string]Status),
+		points:    make(map[string][]TelemetryPoint),
 	}
 }
 
@@ -105,10 +107,15 @@ func (m *Memory) InsertTelemetry(_ context.Context, points []TelemetryPoint) (in
 	return inserted, nil
 }
 
-// InsertEvent 追加事件。
+// InsertEvent 幂等写入：已存在的 (deviceID, seq) 被跳过。
 func (m *Memory) InsertEvent(_ context.Context, e Event) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	key := pointKey{deviceID: e.DeviceID, seq: e.Seq}
+	if _, ok := m.eventSeen[key]; ok {
+		return nil
+	}
+	m.eventSeen[key] = struct{}{}
 	if e.ReceivedAt.IsZero() {
 		e.ReceivedAt = m.now()
 	}
@@ -120,13 +127,15 @@ func (m *Memory) InsertEvent(_ context.Context, e Event) error {
 func (m *Memory) UpsertStatus(_ context.Context, s Status) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	now := m.now()
+	if s.At.IsZero() {
+		s.At = now
+	}
 	m.status[s.DeviceID] = s
 	if d, ok := m.devices[s.DeviceID]; ok {
-		at := s.At
-		if at.IsZero() {
-			at = m.now()
-		}
-		d.LastSeenAt = &at
+		// last_seen_at 是服务端接收时间，不能被设备时钟影响。
+		t := now
+		d.LastSeenAt = &t
 		if s.Firmware != "" {
 			d.FWVersion = s.Firmware
 		}

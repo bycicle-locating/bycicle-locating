@@ -199,6 +199,26 @@ func TestEmptyDeviceListIsArray(t *testing.T) {
 	}
 }
 
+func TestUserResponsesAreNotCached(t *testing.T) {
+	srv, _ := newTestServer(t)
+	defer srv.Close()
+	token, _ := register(t, srv.URL, "cache@example.com")
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL+"/v1/users/me", nil)
+	if err != nil {
+		t.Fatalf("创建请求: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("请求 me: %v", err)
+	}
+	defer res.Body.Close()
+	if got := res.Header.Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control 期望 no-store，实际 %q", got)
+	}
+}
+
 func TestInvalidToken(t *testing.T) {
 	srv, _ := newTestServer(t)
 	defer srv.Close()

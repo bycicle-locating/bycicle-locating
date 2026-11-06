@@ -21,7 +21,8 @@ const (
 // 生产环境缺失会直接启动失败，避免把开发默认值带上线。
 const devPepper = "dev-only-pepper-please-change-me"
 
-// devJWTSecret 只在 APP_ENV=dev 且未设置 JWT_SECRET 时使用。
+// devJWTSecret 只在 APP_ENV=dev 且未配置 DATABASE_URL（纯内存）时使用。
+// 配置数据库后必须显式设置 JWT_SECRET：这个默认值在公开仓库里，不能保护持久化实例。
 const devJWTSecret = "dev-only-jwt-secret-please-change-me"
 
 // Config 是服务配置。
@@ -79,6 +80,9 @@ func Load() (Config, error) {
 
 	if cfg.DatabaseURL == "" && cfg.Env == EnvProd {
 		return Config{}, fmt.Errorf("config: 生产环境必须设置 DATABASE_URL")
+	}
+	if cfg.DatabaseURL != "" && (cfg.JWTSecret == "" || cfg.JWTSecret == devJWTSecret) {
+		return Config{}, fmt.Errorf("config: 配置 DATABASE_URL 时必须设置独立的 JWT_SECRET，不能使用开发默认值")
 	}
 	if cfg.JWTSecret == "" {
 		if cfg.Env == EnvProd {

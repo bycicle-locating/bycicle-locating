@@ -19,6 +19,24 @@ func TestLoadDevDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsDevJWTSecretWithDatabase(t *testing.T) {
+	t.Setenv("APP_ENV", "dev")
+	t.Setenv("CLAIM_PEPPER", strings.Repeat("p", 16))
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("JWT_SECRET", "")
+	if _, err := Load(); err == nil {
+		t.Fatal("配置 DATABASE_URL 但缺少 JWT_SECRET 应拒绝启动")
+	}
+	t.Setenv("JWT_SECRET", devJWTSecret)
+	if _, err := Load(); err == nil {
+		t.Fatal("配置 DATABASE_URL 但使用开发默认 JWT_SECRET 应拒绝启动")
+	}
+	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
+	if _, err := Load(); err != nil {
+		t.Fatalf("独立 JWT_SECRET 应通过：%v", err)
+	}
+}
+
 func TestLoadProdRequiresDBAndJWT(t *testing.T) {
 	t.Setenv("APP_ENV", "prod")
 	t.Setenv("CLAIM_PEPPER", strings.Repeat("p", 16))

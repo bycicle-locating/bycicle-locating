@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS events_device_ts_idx ON events (device_id, ts DESC);
 CREATE INDEX IF NOT EXISTS events_type_ts_idx ON events (type, ts DESC);
+-- 事件与轨迹点走同一条 QoS/重传链路，按 (device_id, seq) 去重。
+CREATE UNIQUE INDEX IF NOT EXISTS events_device_seq_idx ON events (device_id, seq);
 
 CREATE TABLE IF NOT EXISTS device_status (
     device_id  text PRIMARY KEY,

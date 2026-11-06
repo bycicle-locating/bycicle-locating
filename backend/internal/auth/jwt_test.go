@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+const testSubject = "9f1c2f3a-4b5c-4d6e-8f70-1a2b3c4d5e6f"
+
 func testTokens(t *testing.T) (*Tokens, time.Time) {
 	t.Helper()
 	tokens, err := NewTokens(strings.Repeat("s", 32), time.Hour, "bkl-test")
@@ -21,7 +23,7 @@ func testTokens(t *testing.T) (*Tokens, time.Time) {
 
 func TestIssueAndParse(t *testing.T) {
 	tokens, now := testTokens(t)
-	token, expires, err := tokens.Issue("user-1", "a@example.com")
+	token, expires, err := tokens.Issue(testSubject, "a@example.com")
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -32,14 +34,14 @@ func TestIssueAndParse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if claims.Subject != "user-1" || claims.Email != "a@example.com" || claims.Issuer != "bkl-test" {
+	if claims.Subject != testSubject || claims.Email != "a@example.com" || claims.Issuer != "bkl-test" {
 		t.Fatalf("claims 不符：%+v", claims)
 	}
 }
 
 func TestParseRejectsTamper(t *testing.T) {
 	tokens, _ := testTokens(t)
-	token, _, err := tokens.Issue("user-1", "a@example.com")
+	token, _, err := tokens.Issue(testSubject, "a@example.com")
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -55,7 +57,7 @@ func TestParseRejectsTamper(t *testing.T) {
 
 func TestParseExpired(t *testing.T) {
 	tokens, now := testTokens(t)
-	token, _, err := tokens.Issue("user-1", "a@example.com")
+	token, _, err := tokens.Issue(testSubject, "a@example.com")
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -67,7 +69,7 @@ func TestParseExpired(t *testing.T) {
 
 func TestParseRejectsNoneAlg(t *testing.T) {
 	tokens, _ := testTokens(t)
-	token, _, err := tokens.Issue("user-1", "a@example.com")
+	token, _, err := tokens.Issue(testSubject, "a@example.com")
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
@@ -76,6 +78,13 @@ func TestParseRejectsNoneAlg(t *testing.T) {
 	parts[0] = base64.RawURLEncoding.EncodeToString(header)
 	if _, err := tokens.Parse(strings.Join(parts, ".")); !errors.Is(err, ErrInvalidToken) {
 		t.Fatalf("alg=none 应拒绝，实际 %v", err)
+	}
+}
+
+func TestIssueRejectsNonUUIDSubject(t *testing.T) {
+	tokens, _ := testTokens(t)
+	if _, _, err := tokens.Issue("user-1", "a@example.com"); err == nil {
+		t.Fatal("非 UUID subject 应被拒绝")
 	}
 }
 

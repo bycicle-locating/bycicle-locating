@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Postgres 全链路：postgres → migrate → backend(JWT) → nginx → 用户 API。
-# 手动/合并前验证用；不加入必需 CI 检查，避免数据库镜像与网络让流水线变脆。
+# 本地/CI 验证用；CI 里作为非必需 job 运行，避免数据库镜像与网络让流水线变脆。
 set -euo pipefail
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -55,9 +55,8 @@ case "$port" in
 esac
 
 echo "== 启动 Postgres 栈：project=$project port=$port =="
-docker compose --profile deps up -d --build --wait --wait-timeout 180 postgres
-docker compose --profile deps run --rm migrate
-docker compose --profile deps up -d --wait --wait-timeout 180 backend nginx
+# backend 的 depends_on 会先跑完 migrate；这里顺带验证该顺序。
+docker compose --profile deps up -d --build --wait --wait-timeout 240 backend nginx
 
 for _ in $(seq 1 30); do
   if curl -fsS -o /dev/null --max-time 2 "http://127.0.0.1:$port/healthz"; then

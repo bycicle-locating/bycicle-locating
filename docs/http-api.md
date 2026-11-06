@@ -28,7 +28,7 @@
 | 404 | `not_found` | 资源不存在 |
 | 409 | `already_bound` | 设备已被绑定 |
 | 409 | `email_taken` | 注册邮箱已被占用 |
-| 429 | `rate_limited` | 请求过于频繁 |
+| 429 | `rate_limited` | 请求过于频繁（nginx 限流也返回同一 JSON 结构） |
 | 500 | `internal` | 服务暂时不可用；细节只进服务端日志 |
 
 ## 2. 用户
@@ -136,15 +136,17 @@
 ## 4. JWT
 
 - 算法：HS256；`alg` 不是 HS256 的 token 一律拒绝。
-- Claims：`sub`（用户 UUID）、`email`、`iss`、`iat`、`exp`。
+- Claims：`sub`（用户 UUID）、`email`、`iss`、`iat`、`exp`；`sub` 不是合法 UUID 时按无效 token 拒绝。
 - 默认有效期 24 小时；由服务端 `JWT_TTL` 配置。
 - token 只放 `Authorization` 头，不放在 URL/query。
+- 用户接口响应带 `Cache-Control: no-store`，避免 PII 被中间层缓存。
 - 服务端日志不记录请求体、密码或 token。
 
 ## 5. 当前限制
 
 - 没有 refresh token、logout、改密、邮箱验证、找回密码。
 - 注册开放；当前没有邀请码或邮箱验证，生产开放前需要补。
-- 登录/注册只做边缘限流（Cloudflare/nginx）；业务级风控属于后续。
+- 登录/注册只做边缘限流（nginx 每真实客户端 IP 1 r/s、burst 3，超出返回 429）；
+  业务级风控属于后续。
 - `APP_ENV=dev` 且未配置 `DATABASE_URL` 时，后端仍接受 `X-Dev-User` 开发身份；
   `APP_ENV=prod` 或配置了 Postgres 时只认 JWT。

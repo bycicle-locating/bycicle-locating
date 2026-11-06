@@ -58,8 +58,8 @@ func (t *Tokens) WithClock(now func() time.Time) *Tokens {
 
 // Issue 为用户签发 token，返回过期时间（UTC）。
 func (t *Tokens) Issue(subject, email string) (string, time.Time, error) {
-	if subject == "" {
-		return "", time.Time{}, errors.New("auth: subject 不能为空")
+	if !validSubject(subject) {
+		return "", time.Time{}, errors.New("auth: subject 必须是 UUID")
 	}
 	now := t.now().UTC()
 	expires := now.Add(t.ttl)
@@ -120,7 +120,7 @@ func (t *Tokens) Parse(token string) (Claims, error) {
 	if err := json.Unmarshal(payloadJSON, &claims); err != nil {
 		return Claims{}, ErrInvalidToken
 	}
-	if claims.Subject == "" || claims.Issuer != t.issuer {
+	if !validSubject(claims.Subject) || claims.Issuer != t.issuer {
 		return Claims{}, ErrInvalidToken
 	}
 	now := t.now().UTC().Unix()
@@ -141,4 +141,25 @@ func (t *Tokens) sign(input string) []byte {
 
 func b64(b []byte) string {
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// validSubject 要求 sub 是标准 36 字符 UUID。Postgres 的 users.id 是 uuid 列，
+// 非 UUID 的 sub 会在 CAST 时变成 500，因此在 token 边界就拒绝。
+func validSubject(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if s[i] != '-' {
+				return false
+			}
+			continue
+		}
+		c := s[i]
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }

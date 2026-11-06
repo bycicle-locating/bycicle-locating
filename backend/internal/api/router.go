@@ -158,6 +158,7 @@ func toUserDTO(u store.User) userDTO {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req registerRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "请求体格式错误")
@@ -172,6 +173,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req loginRequest
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "请求体格式错误")
@@ -196,6 +198,7 @@ func (s *Server) writeAuth(w http.ResponseWriter, status int, u store.User) {
 }
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")
@@ -210,6 +213,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")
@@ -233,6 +237,7 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMyDevices(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	userID, err := s.auth.User(r.Context(), r)
 	if err != nil {
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "请先登录")

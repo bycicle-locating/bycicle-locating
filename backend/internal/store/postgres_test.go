@@ -7,9 +7,23 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
+
+func TestNewPostgresDoesNotLeakDSN(t *testing.T) {
+	const secret = "supersecret"
+	_, err := NewPostgres(context.Background(), "postgres://user:"+secret+"@%zz")
+	if err == nil {
+		t.Fatal("非法 DSN 应返回错误")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("错误信息泄露了 DSN 密码：%v", err)
+	}
+}
 
 func randomHex(n int) string {
 	b := make([]byte, n)
@@ -60,7 +74,9 @@ func TestPostgresStore(t *testing.T) {
 	if created.ID != u.ID || created.Email != email {
 		t.Fatalf("创建用户返回不符：%+v", created)
 	}
-	if _, err := pg.CreateUser(ctx, u); !errors.Is(err, ErrEmailTaken) {
+	duplicateEmail := u
+	duplicateEmail.ID = newTestUUID()
+	if _, err := pg.CreateUser(ctx, duplicateEmail); !errors.Is(err, ErrEmailTaken) {
 		t.Fatalf("重复邮箱应返回 ErrEmailTaken，实际 %v", err)
 	}
 
@@ -126,15 +142,44 @@ func TestPostgresStore(t *testing.T) {
 		t.Fatalf("重复 InsertTelemetry: n=%d err=%v", n, err)
 	}
 
-	at := time.Now().UTC()
-	if err := pg.UpsertStatus(ctx, Status{DeviceID: deviceID, Online: true, Firmware: "0.1.0", At: at}); err != nil {
+	ev := Event{
+		DeviceID: deviceID,
+		Seq:      10,
+		Time:     time.Now().UTC(),
+		Name:     "battery_low",
+		Level:    "warn",
+		Data:     map[string]any{"mv": 3300},
+	}
+	if err := pg.InsertEvent(ctx, ev); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+	if err := pg.InsertEvent(ctx, ev); err != nil {
+		t.Fatalf("重复 InsertEvent: %v", err)
+	}
+	var eventCount, batteryMV int
+	if err := pg.pool.QueryRow(ctx, `SELECT count(*),
+		COALESCE(max(CAST(data->>'mv' AS integer)), 0)
+		FROM events WHERE device_id = @deviceID`,
+		pgx.NamedArgs{"deviceID": deviceID}).Scan(&eventCount, &batteryMV); err != nil {
+		t.Fatalf("查询事件: %v", err)
+	}
+	if eventCount != 1 || batteryMV != 3300 {
+		t.Fatalf("事件幂等或 jsonb 不符：count=%d mv=%d", eventCount, batteryMV)
+	}
+
+	// last_seen_at 用服务端接收时间；设备时间 at 落后一小时不应把它拖回过去。
+	deviceAt := time.Now().UTC().Add(-time.Hour)
+	if err := pg.UpsertStatus(ctx, Status{DeviceID: deviceID, Online: true, Firmware: "0.1.0", At: deviceAt}); err != nil {
 		t.Fatalf("UpsertStatus: %v", err)
 	}
 	withStatus, err := pg.Device(ctx, deviceID)
 	if err != nil || withStatus.FWVersion != "0.1.0" || withStatus.LastSeenAt == nil {
 		t.Fatalf("状态未同步到设备：%+v, %v", withStatus, err)
 	}
-	if err := pg.TouchLastSeen(ctx, deviceID, at.Add(time.Minute)); err != nil {
+	if withStatus.LastSeenAt.Before(deviceAt.Add(30 * time.Minute)) {
+		t.Fatalf("last_seen_at 应使用服务端时间，实际 %v（设备时间 %v）", withStatus.LastSeenAt, deviceAt)
+	}
+	if err := pg.TouchLastSeen(ctx, deviceID, time.Now().UTC()); err != nil {
 		t.Fatalf("TouchLastSeen: %v", err)
 	}
 }

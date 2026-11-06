@@ -44,7 +44,7 @@ erDiagram
 | `claimed_at` | `timestamptz` NULL | 绑定时写入，**不可回滚为 NULL**（解绑写 `unbound_at`） |
 | `state` | `text` NOT NULL | `FACTORY` / `CLAIMABLE` / `CLAIMED` |
 | `fw_version` | `text` | 最近上报的固件版本 |
-| `last_seen_at` | `timestamptz` | 由 `status` 更新 |
+| `last_seen_at` | `timestamptz` | 由 `status` 更新，写服务端接收时间而非设备时钟 |
 | `last_fix_at` | `timestamptz` | 最近一次有效定位 |
 | `label` | `text` | 用户备注，如「通勤车」 |
 | `config` | `jsonb` NOT NULL DEFAULT '{}' | 见 protocol.md §7.1 |
@@ -124,8 +124,8 @@ erDiagram
 | `geom` / `lat` / `lon` | 同上 | 可空 |
 | `data` | `jsonb` | 原始附加信息 |
 
-索引：`(device_id, ts DESC)`；`(type, ts DESC)`。
-事件当前是纯追加，不做 `(device_id, seq)` 去重；需要幂等时再单独评估。
+索引：`(device_id, ts DESC)`；`(type, ts DESC)`；唯一索引 `(device_id, seq)`。
+事件与轨迹点走同一条 QoS/重传链路，插入时按 `(device_id, seq)` 去重（`ON CONFLICT DO NOTHING`）。
 
 ### device_status
 
@@ -139,8 +139,8 @@ erDiagram
 | `battery_mv` | `integer` | 电池电压，可空 |
 | `at` | `timestamptz` NOT NULL | 该状态对应的设备时间 |
 
-不设外键：设备尚未登记时也允许记录状态；`devices.last_seen_at` / `fw_version`
-由同一次写入同步更新（设备存在时）。
+不设外键：设备尚未登记时也允许记录状态；`devices.last_seen_at` 用服务端接收时间，
+`fw_version` 由同一次写入同步更新（设备存在时）。
 
 ### geofences
 

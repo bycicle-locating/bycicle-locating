@@ -101,6 +101,7 @@ idf.py set-target esp32s3 && idf.py build
 - 绑定必须**原子**：校验声明码 + 占用该码 + 写车主在同一次写操作内（data-model.md §3）。
 - 后端依赖面保持最小：Postgres 用 `pgx`，密码哈希用 `x/crypto/argon2`；新增依赖前先说清楚理由。
 - `APP_ENV=prod` 缺 `DATABASE_URL` 或 `JWT_SECRET` 会**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
+- 配置 `DATABASE_URL` 后必须显式设置独立 `JWT_SECRET`；公开的开发默认 secret 只允许纯内存 dev。
 
 ### 3.4 手机端
 

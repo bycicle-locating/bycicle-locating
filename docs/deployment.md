@@ -113,18 +113,17 @@ cd /opt/bicycle-locating/backend
 #    DATABASE_URL=postgres://bkl:<url-encoded-password>@postgres:5432/bike_locating?sslmode=disable
 #    JWT_SECRET=<openssl rand -base64 48>，JWT_TTL=24h
 #    APP_ENV=prod（JWT 生效后不再接受 X-Dev-User）
-# 2. 起库并执行迁移
-docker compose --profile deps up -d --wait postgres
-docker compose --profile deps run --rm migrate
-# 3. 重建应用
+# 2. 起库、迁移并重建应用（backend 会等待 migrate 成功）
 docker compose --profile deps up -d --build --force-recreate --wait backend nginx
-# 4. 从客户端验证用户 API（不能在服务器本机跑域名 smoke）
+# 3. 从客户端验证用户 API（不能在服务器本机跑域名 smoke）
 BASE_URL=https://bycicle-locating.top \
   CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
   bash backend/deploy/user-smoke.sh
 ```
 
 - 迁移 SQL 在 `internal/store/migrations/`；`migrate` 是一次性容器，失败会退出非零。
+- 启用 `deps` profile 时，`backend` 的 `depends_on` 会等待 `migrate` 成功后再启动；
+  纯内存 profile 没有 `migrate`，依赖标了 `required:false`，不影响默认 `up`。
 - 数据库卷是 `pg-data`；`docker compose down -v` 会删除全部用户/绑定/轨迹，生产禁用。
 - 备份：`docker compose --profile deps exec -T postgres pg_dump -U bkl bike_locating > backup.sql`。
 - `POSTGRES_PASSWORD` 只在首次初始化数据卷时生效；之后改 `.env` 不会改已有库密码。
@@ -160,12 +159,13 @@ BASE_URL=https://bycicle-locating.top \
 
 - **线上实例仍是 `APP_ENV=dev` + 内存存储**：代码已支持 JWT/Postgres，但本次没有切换服务器。
   无头请求返回 401，带任意 `X-Dev-User` 仍会被信任；不要放真实用户数据。
-- 切 `APP_ENV=prod` 必须同时配置 `DATABASE_URL` 与 `JWT_SECRET`，否则服务拒绝启动。
+- 切 `APP_ENV=prod` 必须同时配置 `DATABASE_URL` 与 `JWT_SECRET`，否则服务拒绝启动；
+  配置 `DATABASE_URL` 后也不能沿用公开的开发默认 JWT secret，否则同样拒绝启动。
 - 公网入口已加 Access：浏览器需邮箱登录，脚本需服务令牌；App/固件还没有接入 JWT，
   因此暂不能直接访问这个 HTTP 入口。
 - 服务令牌 `bkl-dev-smoke` 有效期到 2027-11-06，到期前需轮换。
 - nginx 对绑定接口限流（每真实客户端 IP 1 r/s，burst 5），对 `/v1/auth/` 限流
-  （5 r/s，burst 10）；业务级登录限流仍属 M1。
+  （1 r/s，burst 3）；超出返回 429 JSON。业务级登录风控仍属 M1。
 - JWT 目前没有 refresh token / logout / 改密 / 邮箱验证；token 过期后重新登录。
 - 存储：线上内存实现重启即丢；Postgres 模式持久化在 `pg-data` 卷。
 - MQTT 仍是日志桩；固件上报链路（broker + TLS + 每设备 ACL）属 M1。

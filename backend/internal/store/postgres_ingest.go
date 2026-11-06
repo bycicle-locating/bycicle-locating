@@ -67,7 +67,8 @@ func (p *Postgres) InsertEvent(ctx context.Context, e Event) error {
 	}
 	_, err = p.pool.Exec(ctx, `INSERT INTO events
 		(device_id, seq, ts, received_at, type, level, lat, lon, data)
-		VALUES (@deviceID, @seq, @ts, @receivedAt, @name, @level, @lat, @lon, @data)`,
+		VALUES (@deviceID, @seq, @ts, @receivedAt, @name, @level, @lat, @lon, @data)
+		ON CONFLICT (device_id, seq) DO NOTHING`,
 		pgx.NamedArgs{
 			"deviceID":   e.DeviceID,
 			"seq":        int64(e.Seq),
@@ -93,7 +94,7 @@ func (p *Postgres) UpsertStatus(ctx context.Context, s Status) error {
 	var one int
 	err := p.pool.QueryRow(ctx, `WITH updated AS (
 		UPDATE devices SET
-			last_seen_at = @at,
+			last_seen_at = now(),
 			fw_version = CASE WHEN @firmware = '' THEN fw_version ELSE @firmware END
 		WHERE id = @deviceID
 		RETURNING 1

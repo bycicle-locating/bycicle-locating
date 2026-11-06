@@ -32,6 +32,12 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:-bicycle-locating}
     expose:
       - "8080"
+    # deps profile 启用时先跑完迁移再启动；默认 profile 没有 migrate，
+    # required:false 让纯内存模式仍然可以直接 up。
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+        required: false
     networks: [edge, data]
     read_only: true
     tmpfs:

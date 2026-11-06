@@ -72,7 +72,7 @@ func run() error {
 		return err
 	}
 	if cfg.IsDev() && cfg.JWTSecret == "dev-only-jwt-secret-please-change-me" {
-		log.Warn("JWT_SECRET 使用开发默认值，生产环境必须覆盖")
+		log.Warn("JWT_SECRET 使用开发默认值，仅限纯内存开发模式")
 	}
 
 	devices := device.New(st, hasher)
