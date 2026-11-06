@@ -10,6 +10,7 @@
 #include "sdkconfig.h"
 
 #include "app_types.h"
+#include "audio_out.h"
 #include "ble_status.h"
 #include "modem_at.h"
 #include "modem_gnss.h"
@@ -195,6 +196,19 @@ void app_main(void)
     if (bkl_st25dv_init(0, 5, 6, 9) != ESP_OK) {
         ESP_LOGW(TAG, "NFC 标签未就绪（ST25DV16K，I²C0 SDA=5 SCL=6 GPO=9）");
     }
+    if (bkl_audio_init() != ESP_OK) {
+        ESP_LOGW(TAG, "提示音未就绪（I²S LRCLK=%d BCLK=%d DIN=%d）", CONFIG_BKL_AUDIO_LRCLK,
+                 CONFIG_BKL_AUDIO_BCLK, CONFIG_BKL_AUDIO_DIN);
+    }
+
+#ifdef CONFIG_BKL_AUDIO_SELFTEST_ON_BOOT
+    /* 产线自检：能听到 2 kHz 三声就说明 I²S 通道与喇叭接线是对的。 */
+    if (bkl_audio_find_me() == ESP_OK) {
+        ESP_LOGI(TAG, "提示音自检：已排队播放找车音");
+    } else {
+        ESP_LOGE(TAG, "提示音自检：播放队列已满，未播出");
+    }
+#endif
 
     ESP_LOGW(TAG, "M0 骨架：采样/AT/GNSS/BLE 均为桩实现，见 docs/roadmap.md 的 M1");
 
