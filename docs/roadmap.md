@@ -29,7 +29,8 @@
 - [ ] 模组侧 MQTT 连通：`AT+QMTOPEN` → `AT+QMTCONN` → `AT+QMTPUB`
 - [ ] ST25DV16K 接入：I²C 识别（读 UID）、NDEF 读写与读回校验、天线调谐后实测读距
 - [ ] 锁屏触碰实测：Android 与 iOS（Type 5 的后台读取得真机确认）
-- [ ] 后端：MQTT 订阅 + `internal/protocol` 校验 + `Store` Postgres 实现 + 迁移脚本
+- [ ] 后端：MQTT 订阅 + `internal/protocol` 校验
+- [x] 后端：用户注册/登录 + JWT + Postgres Store + 迁移脚本
 - [ ] 固件：`modem_at` 真实实现（UART + URC），`modem_mqtt` 完成 QMTOPEN/CONN/PUBEX
 - [ ] 固件：`track/ringbuf` 落 LittleFS，`uploader` 批量与退避
 - [ ] App：`ApiClient` 接后端，地图页显示"最后已知位置"

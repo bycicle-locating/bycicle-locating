@@ -24,10 +24,12 @@ new_claim() {
 }
 
 port=${BKL_E2E_PORT:-18080}
-project=${COMPOSE_PROJECT_NAME:-bkl-e2e-$$}
+# 强制唯一 project：避免外部 COMPOSE_PROJECT_NAME 指向生产，cleanup 的 down -v 误删生产卷。
+project="bkl-e2e-$$"
 claim=$(new_claim)
 pepper=$(openssl rand -base64 32)
 postgres_password=$(openssl rand -base64 24)
+jwt_secret=$(openssl rand -hex 32)
 dev_user=11111111-1111-1111-1111-111111111111
 device=BKL-2026-000001
 
@@ -35,6 +37,9 @@ export COMPOSE_PROJECT_NAME=$project
 export BKL_HTTP_PORT=$port
 export CLAIM_PEPPER=$pepper
 export POSTGRES_PASSWORD=$postgres_password
+# 显式空：不让调用者环境的 DATABASE_URL 把 e2e 连到外部数据库。
+export DATABASE_URL=
+export JWT_SECRET=$jwt_secret
 # 故意留空：验证无身份请求会得到 401，而不是回退到固定用户。
 export DEV_USER_ID=
 export DEV_SEED_CLAIM=$claim
@@ -84,6 +89,12 @@ DEV_USER_ID="$dev_user" \
 DEVICE_ID="$device" \
 EXPECT_UNAUTHENTICATED=1 \
   "$script_dir/smoke.sh"
+
+echo "== 用户 API 冒烟 =="
+BASE_URL="http://127.0.0.1:$port" \
+CLAIM_CODE="$claim" \
+DEVICE_ID="$device" \
+  bash "$script_dir/user-smoke.sh"
 
 # 重建 backend 会分配新 IP；验证 nginx 的 resolver 配置能让链路自动恢复。
 echo "== 重建 backend，验证 nginx 自动恢复 =="

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,6 +18,8 @@ type Memory struct {
 	now     func() time.Time
 	devices map[string]*Device
 	claims  map[string]string // deviceID -> 声明码哈希
+	users   map[string]User
+	emails  map[string]string // 小写邮箱 -> userID
 	seen    map[pointKey]struct{}
 	events  []Event
 	status  map[string]Status
@@ -42,6 +45,8 @@ func NewMemory() *Memory {
 		now:     time.Now,
 		devices: make(map[string]*Device),
 		claims:  make(map[string]string),
+		users:   make(map[string]User),
+		emails:  make(map[string]string),
 		seen:    make(map[pointKey]struct{}),
 		status:  make(map[string]Status),
 		points:  make(map[string][]TelemetryPoint),
@@ -54,10 +59,22 @@ func (m *Memory) WithClock(now func() time.Time) *Memory {
 	return m
 }
 
-// PutDevice 注册一台设备并写入声明码哈希（模拟产线上报）。
+// PutDevice 注册一台设备并写入声明码哈希（测试辅助，不参与 Store 接口）。
 func (m *Memory) PutDevice(d Device, claimCodeHash string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.putDeviceLocked(d, claimCodeHash)
+}
+
+// SeedDevice 实现 DeviceSeeder，供启动时注册演示设备。
+func (m *Memory) SeedDevice(_ context.Context, d Device, claimCodeHash string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.putDeviceLocked(d, claimCodeHash)
+	return nil
+}
+
+func (m *Memory) putDeviceLocked(d Device, claimCodeHash string) {
 	if d.State == "" {
 		d.State = StateClaimable
 	}
@@ -202,6 +219,87 @@ func (m *Memory) TouchLastSeen(_ context.Context, deviceID string, at time.Time)
 		d.LastSeenAt = &t
 	}
 	return nil
+}
+
+// CreateUser 写入账号；邮箱按小写唯一。
+func (m *Memory) CreateUser(_ context.Context, u User) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u.Email = strings.ToLower(strings.TrimSpace(u.Email))
+	if u.ID == "" || u.Email == "" {
+		return User{}, fmt.Errorf("store: 用户 ID 与邮箱不能为空")
+	}
+	if _, ok := m.emails[u.Email]; ok {
+		return User{}, ErrEmailTaken
+	}
+	if u.CreatedAt.IsZero() {
+		u.CreatedAt = m.now()
+	}
+	m.users[u.ID] = u
+	m.emails[u.Email] = u.ID
+	return u, nil
+}
+
+// UserByEmail 按小写邮箱查询。
+func (m *Memory) UserByEmail(_ context.Context, email string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id, ok := m.emails[strings.ToLower(strings.TrimSpace(email))]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	u, ok := m.users[id]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	return u, nil
+}
+
+// UserByID 按 ID 查询。
+func (m *Memory) UserByID(_ context.Context, id string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u, ok := m.users[id]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	return u, nil
+}
+
+// UpdateUserDisplayName 更新昵称；空字符串表示清空。
+func (m *Memory) UpdateUserDisplayName(_ context.Context, id, displayName string) (User, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	u, ok := m.users[id]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	u.DisplayName = displayName
+	m.users[id] = u
+	return u, nil
+}
+
+// DevicesByOwner 返回车主名下设备，按绑定时间倒序。
+func (m *Memory) DevicesByOwner(_ context.Context, userID string) ([]Device, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]Device, 0)
+	for _, d := range m.devices {
+		if d.ClaimedBy != nil && *d.ClaimedBy == userID {
+			out = append(out, *d)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		var ti, tj time.Time
+		if out[i].ClaimedAt != nil {
+			ti = *out[i].ClaimedAt
+		}
+		if out[j].ClaimedAt != nil {
+			tj = *out[j].ClaimedAt
+		}
+		return ti.After(tj)
+	})
+	return out, nil
 }
 
 // Points 返回某设备的全部轨迹点（测试用），按 seq 升序。

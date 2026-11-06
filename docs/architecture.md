@@ -50,7 +50,7 @@ flowchart TB
 |---|---|---|
 | 设备↔云 | [protocol.md](protocol.md) | 固件 `main/proto` ↔ 后端 `internal/protocol` |
 | App↔设备 | [pairing.md](pairing.md) | 固件 `main/ble`、`main/nfc` ↔ App `core/ble`、`core/nfc` |
-| App↔云 | OpenAPI（后端生成） | 后端 `internal/api` ↔ App `core/api` |
+| App↔云 | [http-api.md](http-api.md) | 后端 `internal/api` ↔ App `core/api` |
 
 ## 3. 深模块与 seam
 

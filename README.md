@@ -68,6 +68,7 @@ cd firmware && idf.py set-target esp32s3 && idf.py build
 | [docs/architecture.md](docs/architecture.md) | 分层、模块 seam、数据流、失败模式 |
 | [docs/protocol.md](docs/protocol.md) | MQTT 主题、信封、幂等与离线缓存 |
 | [docs/pairing.md](docs/pairing.md) | NFC 绑定状态机、BLE GATT 定义 |
+| [docs/http-api.md](docs/http-api.md) | App↔后端 HTTP API、用户、JWT、错误码 |
 | [docs/data-model.md](docs/data-model.md) | 表结构与索引 |
 | [docs/hardware.md](docs/hardware.md) | BOM、引脚、电源预算、天线 |
 | [docs/roadmap.md](docs/roadmap.md) | M0–M4 里程碑 |

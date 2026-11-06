@@ -60,9 +60,12 @@ erDiagram
 | `device_id` | `text` REFERENCES devices | |
 | `user_id` | `uuid` REFERENCES users | |
 | `bound_at` / `unbound_at` | `timestamptz` | 解绑只写 `unbound_at` |
-| `reason` | `text` | `user_table` / `support` / `factory_reset` |
+| `reason` | `text` | `user_table`（默认） / `support` / `factory_reset` |
 
 现有绑定以 `devices.claimed_by` 为准，本表只做追溯。
+索引：`UNIQUE (device_id) WHERE unbound_at IS NULL`，保证一台设备最多一条未关闭的绑定记录。
+`devices.claimed_by` 变化时由触发器写入本表（绑定插一条，解绑写 `unbound_at`），
+应用层不需要在同一次绑定里发两条 SQL。
 
 ### telemetry_points
 
@@ -113,13 +116,31 @@ erDiagram
 |---|---|---|
 | `id` | `bigserial` PK | |
 | `device_id` | `text` NOT NULL | |
-| `ts` | `timestamptz` NOT NULL | |
+| `seq` | `bigint` NOT NULL | 设备事件序号 |
+| `ts` | `timestamptz` NOT NULL | 设备时间 |
+| `received_at` | `timestamptz` NOT NULL DEFAULT now() | 服务端收到时间 |
 | `type` | `text` NOT NULL | protocol.md §5 的枚举 |
 | `level` | `text` NOT NULL | info/warn/critical |
 | `geom` / `lat` / `lon` | 同上 | 可空 |
 | `data` | `jsonb` | 原始附加信息 |
 
 索引：`(device_id, ts DESC)`；`(type, ts DESC)`。
+事件当前是纯追加，不做 `(device_id, seq)` 去重；需要幂等时再单独评估。
+
+### device_status
+
+在线状态是设备的“最新值”，不进入历史；用单独一张表覆盖写入。
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| `device_id` | `text` PK | 设备 ID |
+| `online` | `boolean` NOT NULL | 最近一次 status 的在线状态 |
+| `firmware` | `text` | 最近上报的固件版本 |
+| `battery_mv` | `integer` | 电池电压，可空 |
+| `at` | `timestamptz` NOT NULL | 该状态对应的设备时间 |
+
+不设外键：设备尚未登记时也允许记录状态；`devices.last_seen_at` / `fw_version`
+由同一次写入同步更新（设备存在时）。
 
 ### geofences
 

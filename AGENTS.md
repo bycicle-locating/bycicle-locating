@@ -13,7 +13,7 @@
 |---|---|---|---|
 | `app/` | 手机端：绑定、地图、骑行记录 | Flutter + Riverpod + go_router | 骨架，无插件接入 |
 | `firmware/` | 车载硬件：采样、离线缓存、上报 | ESP-IDF v5.x (C) + NimBLE | 骨架，硬件模块为桩 |
-| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.27，**当前只用标准库** | 骨架，内存存储 |
+| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.27，pgx + x/crypto/argon2 | M1：Postgres 用户/设备 + JWT；MQTT 仍为桩 |
 | `docs/` | 契约与设计 | Markdown | **跨端唯一真相** |
 
 硬件（**已实测**，见 `docs/hardware.md` §0）：**ESP32-S3**（8 MB flash / 带 PSRAM）+ Quectel **EC800MCNGB**
@@ -99,8 +99,8 @@ idf.py set-target esp32s3 && idf.py build
 - **SQL 只出现在 `store` 实现里**；接口不得暴露 `pgx`/`sql.Row`。
 - **幂等靠主键**：`INSERT ... ON CONFLICT (device_id, seq) DO NOTHING`，不做"先查再插"。
 - 绑定必须**原子**：校验声明码 + 占用该码 + 写车主在同一次写操作内（data-model.md §3）。
-- 新增依赖前先想清楚：当前骨架零依赖，`go build ./...` 不联网即可通过。
-- `APP_ENV=prod` 会在缺 JWT 时**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
+- 后端依赖面保持最小：Postgres 用 `pgx`，密码哈希用 `x/crypto/argon2`；新增依赖前先说清楚理由。
+- `APP_ENV=prod` 缺 `DATABASE_URL` 或 `JWT_SECRET` 会**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
 
 ### 3.4 手机端
 

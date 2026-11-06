@@ -27,6 +27,7 @@
 | 公网直连 | 默认关闭 | 确需时设 `BKL_BIND_ADDR=0.0.0.0`，并在安全组限制来源 IP |
 
 健康检查：`GET /healthz`。公网 `/healthz` 也在 Access 后面；容器健康检查走内网，不受影响。
+HTTP API（注册/登录/用户/设备）契约见 [http-api.md](http-api.md)。
 
 - 联调脚本优先使用 `https://bycicle-locating.top`（需 Access 服务令牌）。
   App 目前没有服务令牌/JWT，暂继续连本机后端；JWT 落地后再切到域名。
@@ -57,11 +58,15 @@
 | 系统 | Debian 13 x86_64，Docker CE + Compose v2 |
 | 代码与编排 | `/opt/bicycle-locating/backend` |
 | 环境变量 | `/opt/bicycle-locating/backend/.env`（`0600 root:root`） |
-| 关键变量 | `CLAIM_PEPPER`、`TUNNEL_TOKEN`、`POSTGRES_PASSWORD`、`CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET`、`BKL_HTTP_PORT=32525`、`BKL_BIND_ADDR=127.0.0.1` |
-| 容器 | `backend`、`nginx`、`cloudflared`（`tunnel` profile） |
+| 关键变量 | `CLAIM_PEPPER`、`TUNNEL_TOKEN`、`POSTGRES_PASSWORD`、`DATABASE_URL`、`JWT_SECRET`、`JWT_TTL`、`CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET`、`BKL_HTTP_PORT=32525`、`BKL_BIND_ADDR=127.0.0.1` |
+| 容器 | 默认：`backend`、`nginx`；`tunnel` profile：`cloudflared`；`deps` profile：`postgres`、`migrate`（`broker` 也在 deps，生产不要一起起） |
 
 `.env` 只在服务器上维护，不提交、不复制进仓库。
 公网实例**不要设置 `DEV_USER_ID`**——它会让没有 `X-Dev-User` 头的请求也被当成固定用户。
+
+> **当前线上实例仍是 `APP_ENV=dev` + 内存存储**（本次只合入代码，未切换服务器）。
+> 切 Postgres/JWT 的步骤在 §5.1；执行前现有域名联调不受影响。切换后要重新注册用户，
+> 旧的 `X-Dev-User` 冒烟脚本不再适用。
 
 ## 5. 常用操作
 
@@ -98,6 +103,32 @@ BKL_E2E_PORT=18080 bash deploy/e2e.sh
 `deploy/smoke.sh` 在检测到 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` 时会自动加 Access 头；
 未设置时，公网请求会被 302 到团队登录页。
 
+### 5.1 切到 Postgres + JWT（尚未在当前线上实例执行）
+
+代码已支持 Postgres Store 与 JWT；线上实例仍是内存 + dev 鉴权。切换步骤：
+
+```bash
+cd /opt/bicycle-locating/backend
+# 1. 在 .env 增加（密码含特殊字符时先 URL-encode）：
+#    DATABASE_URL=postgres://bkl:<url-encoded-password>@postgres:5432/bike_locating?sslmode=disable
+#    JWT_SECRET=<openssl rand -base64 48>，JWT_TTL=24h
+#    APP_ENV=prod（JWT 生效后不再接受 X-Dev-User）
+# 2. 起库并执行迁移
+docker compose --profile deps up -d --wait postgres
+docker compose --profile deps run --rm migrate
+# 3. 重建应用
+docker compose --profile deps up -d --build --force-recreate --wait backend nginx
+# 4. 从客户端验证用户 API（不能在服务器本机跑域名 smoke）
+BASE_URL=https://bycicle-locating.top \
+  CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
+  bash backend/deploy/user-smoke.sh
+```
+
+- 迁移 SQL 在 `internal/store/migrations/`；`migrate` 是一次性容器，失败会退出非零。
+- 数据库卷是 `pg-data`；`docker compose down -v` 会删除全部用户/绑定/轨迹，生产禁用。
+- 备份：`docker compose --profile deps exec -T postgres pg_dump -U bkl bike_locating > backup.sql`。
+- `POSTGRES_PASSWORD` 只在首次初始化数据卷时生效；之后改 `.env` 不会改已有库密码。
+
 ## 6. 域名、Tunnel 与 Access
 
 - 隧道名：`bicycle-locating`；连接器是 compose 服务 `cloudflared`。
@@ -122,17 +153,19 @@ BKL_E2E_PORT=18080 bash deploy/e2e.sh
   → 更新 Access 策略中的令牌引用。
 - 从服务器本机跑域名 smoke 可能因服务器出站到 Cloudflare 的回程丢响应而超时；
   正式验证应**从开发机/客户端**执行，服务器本机用 `http://127.0.0.1:32525` 直连 nginx。
-- Access 只是边缘收口，不能替代 M1 的 JWT；`APP_ENV=dev` 下带任意 `X-Dev-User`
-  仍会被信任，不要把真实用户数据放到这个实例。
+- Access 只是边缘收口，不能替代应用自己的 JWT；当前线上仍是 `APP_ENV=dev` + 内存，
+  切到 `APP_ENV=prod` 后只认 JWT，`X-Dev-User` 回退会关闭。
 
 ## 7. 当前限制
 
-- `APP_ENV=dev`：JWT 尚未实现。公网实例不设 `DEV_USER_ID` 后，无头请求返回 401，
-  但带任意 `X-Dev-User` 仍会被信任；不要放真实用户数据。
-- 公网入口已加 Access：浏览器需邮箱登录，脚本需服务令牌；App/固件还没有 JWT，
+- **线上实例仍是 `APP_ENV=dev` + 内存存储**：代码已支持 JWT/Postgres，但本次没有切换服务器。
+  无头请求返回 401，带任意 `X-Dev-User` 仍会被信任；不要放真实用户数据。
+- 切 `APP_ENV=prod` 必须同时配置 `DATABASE_URL` 与 `JWT_SECRET`，否则服务拒绝启动。
+- 公网入口已加 Access：浏览器需邮箱登录，脚本需服务令牌；App/固件还没有接入 JWT，
   因此暂不能直接访问这个 HTTP 入口。
 - 服务令牌 `bkl-dev-smoke` 有效期到 2027-11-06，到期前需轮换。
-- nginx 对 `POST /v1/devices:bind` 做基础限流（每真实客户端 IP 1 r/s，burst 5）；
-  业务级绑定限流仍属 M1。
-- 存储是内存实现，重启后数据全部丢失。
+- nginx 对绑定接口限流（每真实客户端 IP 1 r/s，burst 5），对 `/v1/auth/` 限流
+  （5 r/s，burst 10）；业务级登录限流仍属 M1。
+- JWT 目前没有 refresh token / logout / 改密 / 邮箱验证；token 过期后重新登录。
+- 存储：线上内存实现重启即丢；Postgres 模式持久化在 `pg-data` 卷。
 - MQTT 仍是日志桩；固件上报链路（broker + TLS + 每设备 ACL）属 M1。
