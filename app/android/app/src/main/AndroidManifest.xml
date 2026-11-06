@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- release 也必须联网：只写在 debug/profile 里会导致 release APK 的所有请求失败。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="bkl_app"
         android:name="${applicationName}"

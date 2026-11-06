@@ -12,7 +12,8 @@
 - [x] `backend/` 绑定接口冒烟：200 绑定成功 / 409 已绑定 / 403 声明码错误 / 401 未登录
 - [x] `app/` 通过 `flutter analyze`（0 issue）、`flutter test`、`dart format`（Flutter 3.44）
 - [x] `firmware/` 纯 C 模块通过 gcc 13 编译与主机单测
-- [ ] `app/` 生成 `android/`、`ios/` 平台工程并可打包（需先定 applicationId）
+- [x] `app/` 生成 `android/` 平台工程并可打包（`flutter build apk --debug` 通过，applicationId = `top.byciclelocating.app`）
+- [ ] `app/` 生成 `ios/` 平台工程并可打包
 - [ ] `firmware/` 通过 `idf.py build`（待安装 ESP-IDF）
 
 **退出标准**：三层各跑通一次构建。后端与 app 静态检查已达成；固件仅纯 C 模块已达成，ESP-IDF 构建待工具链。

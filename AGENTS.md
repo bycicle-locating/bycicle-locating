@@ -27,8 +27,9 @@
 > **验证状态（2026-10-30）**
 > - `backend/`：✅ `go build` / `go vet` / `go test` / `gofmt -l` 全过（`golang:1.22` 容器），
 >   绑定接口冒烟覆盖 200 / 409 / 403 / 401。
-> - `app/`：✅ `flutter analyze`（0 issue）、`flutter test`（8 项）、`dart format` 全过（Flutter 3.44 容器）。
->   ⚠️ 但**没有 `android/`、`ios/` 平台目录**，还不能打包——需先 `flutter create`（见 app/README）。
+> - `app/`：✅ `flutter analyze`（0 issue）、`flutter test`（8 项）、`dart format` 全过；
+>   `android/` 平台工程已生成并通过 `flutter build apk --debug`（见 app/README）。
+>   ⚠️ **`ios/` 平台目录仍缺**，iOS 打包前需 `flutter create --platforms=ios`。
 > - `firmware/` 纯 C 模块（`app_types` / `proto_encode` / `ringbuf` / `uploader`）：✅ gcc 13 编译 + 主机单测通过。
 > - `firmware/` 的 ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`）：⛔ **尚未编译验证**。
 > - **硬件 bring-up 已通过**（2026-10-30）：ESP32-S3 + EC800MCNGB，SIM READY、信号 31、网络已注册、
@@ -179,7 +180,7 @@ PR 标题、提交信息、注释与文档，只写**结果**和**将来有用�
 | BLE 分片 | 单次写入默认 20 字节；Android 要主动协商 MTU，iOS 行为不同 |
 | RSSI 抖动 | 必须滞回（-65/-78 dBm）+ 连续 3 采样去抖 |
 | 深度睡眠清 RAM | `seq`/缓冲元数据必须落 NVS 或 RTC 内存 |
-| Flutter 缺平台目录 | `app/` 尚无 `android/`、`ios/`，不能打包；先 `flutter create --platforms=android,ios --org <你的域名> --project-name bkl_app .` |
+| Flutter 缺 iOS 平台目录 | `app/` 已有 `android/`（可构建 debug APK），尚无 `ios/`；iOS 打包前先 `flutter create --platforms=ios --org <你的域名> --project-name bkl_app .` |
 | Windows 软链 | `CLAUDE.md` 是指向 `AGENTS.md` 的符号链接（仓库已设 `core.symlinks=true`）；未开开发者模式的机器检出时会退化成普通文件，需开启后 `rm CLAUDE.md && MSYS=winsymlinks:nativestrict ln -s AGENTS.md CLAUDE.md` |
 
 ## 7. 改这些之前先读文档
