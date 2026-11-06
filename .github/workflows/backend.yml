@@ -42,3 +42,15 @@ jobs:
 
       - name: 竞态与覆盖
         run: go test -cover ./...
+
+  docker-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 全链路 e2e（nginx → backend）
+        run: bash deploy/e2e.sh

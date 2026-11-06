@@ -66,9 +66,10 @@ func run() error {
 		if err := seedDemoDevice(st, hasher, cfg.DevSeedClaim); err != nil {
 			return err
 		}
+		// 声明码是凭据，不能进日志；需要时从 DEV_SEED_CLAIM 读取。
 		log.Warn("已注册演示设备（仅开发）",
-			"device", demoDeviceID, "claimCode", cfg.DevSeedClaim,
-			"hint", "curl -X POST localhost:8080/v1/devices:bind ...")
+			"device", demoDeviceID,
+			"hint", "声明码见 DEV_SEED_CLAIM 环境变量")
 	}
 
 	bus := mqtt.NewLogBus(log)

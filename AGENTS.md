@@ -20,6 +20,10 @@
 （Cat.1，GNSS 可用）+ **ST25DV16K** NFC 标签（I²C + Type 5）+ IMU。
 板上当前跑的是 **MicroPython v1.29.0**，不是本项目固件。
 
+**联调环境**：开发与联调统一使用公网服务器 `8.152.6.221`（`https://bycicle-locating.top`）。
+设备通过 EC800M 4G 上网，处于运营商 CGNAT 之后，**无法加入开发机所在局域网**；
+不要按“设备与手机同 WiFi”设计联调。部署与访问方式见 [docs/deployment.md](docs/deployment.md)。
+
 **当前处于 M0**：接口与文档齐全，业务逻辑与硬件驱动未实现，见 `docs/roadmap.md`。
 
 ## 2. 命令
@@ -27,6 +31,7 @@
 > **验证状态（2026-10-30）**
 > - `backend/`：✅ `go build` / `go vet` / `go test` / `gofmt -l` 全过（`golang:1.22` 容器），
 >   绑定接口冒烟覆盖 200 / 409 / 403 / 401。
+> - `backend/`：✅ Docker Compose 部署（nginx → backend）全链路 e2e 通过（2026-11-06）。
 > - `app/`：✅ `flutter analyze`（0 issue）、`flutter test`（8 项）、`dart format` 全过（Flutter 3.44 容器）。
 >   ⚠️ 但**没有 `android/`、`ios/` 平台目录**，还不能打包——需先 `flutter create`（见 app/README）。
 > - `firmware/` 纯 C 模块（`app_types` / `proto_encode` / `ringbuf` / `uploader`）：✅ gcc 13 编译 + 主机单测通过。
@@ -39,9 +44,11 @@
 ```bash
 # 后端
 cd backend
+cp .env.example .env                                            # 填 CLAIM_PEPPER
 go build ./... && go vet ./... && go test ./...
-APP_ENV=dev DEV_SEED_CLAIM=7QK2M5XJ4TZP6RWN go run ./cmd/server   # 无需 DB/broker
-docker compose up -d                                            # 本地 mosquitto + postgres
+set -a; . ./.env; set +a; go run ./cmd/server                   # 直接跑二进制，无需 DB/broker
+docker compose up -d --build --wait                             # nginx + backend
+docker compose --profile deps up -d                             # 本地 mosquitto + postgres
 
 # 手机端
 cd app
