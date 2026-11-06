@@ -23,7 +23,8 @@
 **联调环境**：开发与联调统一使用 `https://bycicle-locating.top`（部署在公网服务器上，
 服务器地址与 SSH 访问见私有运维记录，不写入仓库）。设备通过 EC800M 4G 上网，处于运营商 CGNAT 之后，
 **无法加入开发机所在局域网**；不要按“设备与手机同 WiFi”设计联调。部署与访问方式见
-[docs/deployment.md](docs/deployment.md)。
+[docs/deployment.md](docs/deployment.md)。公网入口已启用 Cloudflare Access：浏览器需邮箱登录，
+联调脚本需服务令牌；服务令牌只存在于服务器 `.env`，不写入仓库。
 
 **当前处于 M0**：接口与文档齐全，业务逻辑与硬件驱动未实现，见 `docs/roadmap.md`。
 

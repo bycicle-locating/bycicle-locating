@@ -28,7 +28,10 @@
 非 root、只读根文件系统）→ **backend:8080**（只在内网）。backend 与 nginx 都不发布公网端口；
 直连端口默认只绑 `127.0.0.1`。
 
-当前联调实例（域名、Tunnel、测试方式）见 [`docs/deployment.md`](../docs/deployment.md)。
+当前联调实例（域名、Tunnel、Access、测试方式）见 [`docs/deployment.md`](../docs/deployment.md)。
+公网实例已启用 Cloudflare Access（`bicycle-locating-api`）；未带登录态或服务令牌的请求会
+302 到团队登录页。`smoke.sh` 检测到 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`
+时会自动加 Access 头。
 
 ```bash
 cp .env.example .env      # 填 CLAIM_PEPPER；需要演示设备时再填 DEV_SEED_CLAIM
@@ -60,7 +63,17 @@ set -a; . ./.env; set +a
 BASE_URL="http://127.0.0.1:${BKL_HTTP_PORT:-32525}" \
   DEV_USER_ID=11111111-1111-1111-1111-111111111111 \
   CLAIM_CODE="$DEV_SEED_CLAIM" bash deploy/smoke.sh
+
+# 公网实例冒烟：在开发机（客户端）上执行；服务令牌从服务器 .env / Zero Trust 面板取
+BASE_URL="https://bycicle-locating.top" \
+  DEV_USER_ID=11111111-1111-1111-1111-111111111111 \
+  CLAIM_CODE="$DEV_SEED_CLAIM" \
+  CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
+  bash backend/deploy/smoke.sh
 ```
+
+不要从服务器本机跑域名 smoke：服务器出站到 Cloudflare 的回程偶发丢响应，会误报超时；
+服务器本机请用 `http://127.0.0.1:32525` 直连 nginx。
 
 e2e 覆盖 healthz、绑定 200、重复绑定 409、错误声明码 403、非车主读写 403、解绑 204、
 解绑后不可见，以及 backend 重建后 nginx 自动恢复。`smoke.sh` 会先清理旧绑定，可重复执行。
