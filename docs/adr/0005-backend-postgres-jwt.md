@@ -20,16 +20,17 @@ Postgres 访问也需要驱动。继续用内存或自实现密码学都会把�
 3. **JWT 用标准库实现 HS256**（`crypto/hmac` + `encoding/base64`），不引入 JWT 库；
    严格拒绝 `alg=none` 与其他算法。
 4. **迁移由一次性 `migrate` 容器用 `psql` 执行**，SQL 放在
-   `internal/store/migrations/`；应用启动只检查 `schema_migrations`，不动态执行 SQL。
-5. 保留内存 Store 作为 dev/e2e 路径；`APP_ENV=prod` 强制 `DATABASE_URL` 与 `JWT_SECRET`。
+   `internal/store/migrations/`；应用启动只检查版本与关键表，不动态执行 SQL。
+5. 保留内存 Store 作为 dev/e2e 路径；`APP_ENV=prod` 强制 `DATABASE_URL` 与 `JWT_SECRET`；
+   配置 `DATABASE_URL` 后也不允许使用公开的开发默认 JWT secret。
 
 ## 后果
 
 - 首次 `go build` / Docker 构建需要下载模块；服务器可用 `GOPROXY=https://goproxy.cn,direct`。
 - 依赖面从 0 增加到 pgx + x/crypto（及其传递依赖），换来了标准 Postgres 访问与
   经过审计的密码哈希实现。
-- 迁移不在应用启动时执行，部署多一步 `docker compose --profile deps run --rm migrate`；
-  好处是只读根文件系统与最小权限容器不需要写迁移状态。
+- 迁移不在应用启动时执行：`deps` profile 下由一次性 `migrate` 服务完成，`backend` 等待其
+  成功后启动；好处是只读根文件系统与最小权限容器不需要写迁移状态。
 - 仍未实现 refresh token、logout、改密、邮箱验证；这些是后续身份能力，不影响本决定。
 
 ## 未采用
