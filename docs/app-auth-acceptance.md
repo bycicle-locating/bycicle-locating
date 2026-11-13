@@ -7,20 +7,26 @@
 
 正式入口已切到 Postgres + JWT（APP_ENV=prod）：匿名访问 `/v1/users/me` 返回 401。服务器经公网 HTTPS 域名、使用 Access 服务令牌执行用户冒烟通过：健康检查、注册、用户查询、修改资料和车辆列表。尚未完成开发机外部请求和手机端验收；上述结果不代表手机 Access 已配置。
 
-## 手机访问方案
+## 普通用户公网访问方案（待实施）
 
-App 默认请求 `https://bycicle-locating.top`。Cloudflare Access 和应用 JWT 分别校验开发团队身份与车主账号；App 不包含 Access 服务令牌。
+普通用户安装 App 后直接注册、登录，无需安装 Cloudflare One Client、加入 Zero Trust 组织或由管理员逐个放行邮箱。One Client 仅可作为开发团队的联调方式，不是产品使用前提。
 
-开发手机使用 Cloudflare One Client 的组织会话身份：
+### 入口与权限
 
-1. 在 Zero Trust 的设备注册策略中允许测试成员邮箱，启用 Cloudflare One Client 会话身份认证。
-2. 在现有 Access 应用启用 **Authenticate with Cloudflare One Client**，保留成员邮箱限制。确认目标域名流量经过组织 Gateway，没有被 Split Tunnels 排除。
-3. 手机安装 Cloudflare One Client，加入对应 Zero Trust 组织，使用获准邮箱登录并连接。
-4. 打开 App 注册或登录。浏览器 Access 登录不会自动授权原生 App 的 HTTP 请求。
+- App API 使用独立域名 `https://api.bycicle-locating.top`，经 Cloudflare 代理和现有 Tunnel 转发到 nginx，再到后端。该入口不设置团队邮箱 Access 门禁，也不依赖 Access 服务令牌。
+- 原有 `https://bycicle-locating.top` 保留 Access 保护，供开发团队访问；将来的管理接口只能通过受保护入口访问，不能因共用后端而暴露在公开 API 域名下。目前没有新增管理接口。
+- 注册、登录接口允许匿名请求；车辆、个人资料等业务接口必须校验有效 JWT，车辆读写还必须校验车主权限。App 未登录时只能访问登录、注册页面。
+- 保留 HTTPS、认证和绑定限流、载荷限制及后端权限校验。源站端口继续仅绑定回环地址，通过 Tunnel 接入，不新增公网直连端口。
+- App 不保存 Cloudflare 服务令牌；用户 JWT 继续存入系统安全存储。
 
-这需要 Cloudflare 控制台管理员操作或管理 API 凭据；服务器上的 Tunnel token 和 Service Auth token 不提供此管理权限。本次未修改 Access 策略，也未完成手机组织注册。
+### 实施顺序
 
-参考：https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/configure/client-sessions/
+1. 配置 API 子域名的 DNS 和 Tunnel 路由，确认现有通配符 Access 策略不会覆盖该域名；原域名的 Access 策略保留。
+2. 检查 nginx 在公开域名只暴露产品 API 和必要健康检查，未知路径拒绝访问；确认部署为 APP_ENV=prod，开发身份头不能授予权限。
+3. 从开发机在不携带 Access cookie、服务令牌且未连接 One Client 的条件下，完成下列公网验收。
+4. 验收通过后，将 App 默认 API 地址切换到 `https://api.bycicle-locating.top` 并重新构建。WebSocket 尚未实现，不因本方案宣称其可用。
+
+本次提交记录方案，未修改 DNS、Tunnel、Access 或 App 默认地址；代码当前仍请求 `https://bycicle-locating.top`。需要 Cloudflare 管理员配置或相应管理 API 权限才能实施入口切换。现有服务器公网冒烟结果仅证明旧受保护入口可用，不证明新 API 域名可用。
 
 ## 正式后端切换
 
@@ -30,13 +36,13 @@ App 默认请求 `https://bycicle-locating.top`。Cloudflare Access 和应用 JW
 
 ## 公网验收顺序
 
-1. 从开发机通过 SSH 取得仅在服务器内使用的服务认证环境，执行服务器上的 `deploy/user-smoke.sh`，BASE_URL 指向公网 HTTPS 域名。密钥不得写入 App、日志或版本库。
-2. 服务器请求公网可验证 Tunnel/Access/API，但还须从开发机执行外部请求，确认客户端到公网链路。
-3. 无应用 JWT 时，业务接口必须返回 401；伪造、过期 JWT 同样返回 401。注册/登录允许匿名调用。
-4. 手机已连接组织 One Client 时，未登录只能看到登录/注册；直接进入地图、骑行、车辆、设置、绑定页均应回到登录页。
+1. 在开发机断开 One Client，不携带 Access cookie 或服务令牌，以 `BASE_URL=https://api.bycicle-locating.top` 运行 `backend/deploy/user-smoke.sh`；确认响应为 API JSON，没有跳转 Access 登录页。
+2. 从普通手机网络重复注册、登录，验证有效 TLS 和外部客户端链路；原受保护域名仍须拒绝未授权访问。
+3. 无应用 JWT、伪造或过期 JWT 访问业务接口必须返回 401；仅带 `X-Dev-User` 同样返回 401。注册/登录允许匿名调用，重复认证请求须触发限流。
+4. 手机无需 One Client，未登录只能看到登录/注册；直接进入地图、骑行、车辆、设置、绑定页均应回到登录页。
 5. 登录 → 空车辆列表 → 用专用测试设备声明码绑定 → 首页和车辆页同步 → 重启恢复会话 → 确认解绑 → 列表刷新。
 6. 账号 A 退出后登录 B，不得显示 A 的车辆；无权解绑应提示失败并保留列表。
-7. 关闭 One Client 或撤销 Access 身份后应提示访问授权失败，不能误报绑定成功；恢复访问后可重试。
+7. 断网或请求失败时显示错误并可重试，不得误报绑定或解绑成功；以账号 B 请求账号 A 的车辆详情或解绑必须被服务端拒绝。
 8. JWT 到期或服务端返回认证失败后回登录页。NFC 绑定链接登录后恢复原设备编号与声明码。
 
 验收使用专用账号和设备，不解绑实际用户车辆。真实地图、NFC/BLE 插件和 iOS 打包不属于本轮验收。
