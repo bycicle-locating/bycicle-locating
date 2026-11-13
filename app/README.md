@@ -2,8 +2,10 @@
 
 Flutter 手机端。架构约定为 **Riverpod + feature-first**。
 
-> **验证状态**：✅ 已在 Flutter stable 下通过 `flutter analyze`（0 issue）、`flutter test`（8 项）、
-> `dart format --set-exit-if-changed`；`flutter build apk --debug` 通过（见 PR #9 自检）。
+新增或修改界面前必读 [App 视觉与交互规范](../docs/app-design-system.md)：统一设计令牌、亚克力材质、可展开底部面板、共享组件及视觉验收要求。现有页面尚未全面迁移，不应将旧页面的局部样式作为新设计基准。
+
+> **验证状态**：✅ Flutter 3.47.9 下通过 `flutter analyze`（0 issue）、`flutter test`（26 项）、
+> `dart format --set-exit-if-changed`；`flutter build apk --debug` 通过。模拟器完成公网注册、登录、会话恢复、绑定与解绑闭环。
 >
 > ✅ **Android 平台工程已生成**（`android/`，applicationId `top.byciclelocating.app`），可直接构建 debug APK。
 > **iOS 尚未生成**；需要时执行（先把 `<org>` 换成自己的反向域名，`com.example` 之后很难改）：
@@ -24,7 +26,9 @@ flutter create --platforms=ios --org <你的域名> --project-name bkl_app .
 | `core/nfc` 的 `BindTagParser` | ✅ 有单测 |
 | `core/ble` / `core/nfc` 插件接入 | ⛔ 接口 + 桩（M1） |
 | 地图、骑行列表、实时位置 | ⛔ 占位页 |
-| 登录 / JWT | ⛔ 开发身份（M1） |
+| 登录 / JWT / 会话恢复 | ✅ 安全存储 + 过期处理 |
+| 车辆绑定、列表、解绑 | ✅ 接入公网 API |
+| 视觉规范与共享组件 | ✅ `docs/app-design-system.md`、`core/theme` |
 | `android/` 平台工程 | ✅ 可构建 debug APK（applicationId `top.byciclelocating.app`） |
 | `ios/` 平台工程 | ⛔ 待生成（见上） |
 
@@ -34,7 +38,7 @@ flutter create --platforms=ios --org <你的域名> --project-name bkl_app .
 flutter pub get
 flutter analyze                    # 必须 0 issue（已验证）
 dart format --set-exit-if-changed .
-flutter test                       # 8 项，已验证
+flutter test                       # 26 项，已验证
 
 # 构建 Android debug APK
 flutter build apk --debug
@@ -85,7 +89,7 @@ test/
 - [ ] 接 `nfc_manager`：`readBindTag()` 读 NDEF URI，交给现有 `BindTagParser`
 - [ ] 接 `flutter_blue_plus`：实现 `BleClient.watchStatus`，含 MTU 协商与分片（pairing.md §5.3）
 - [ ] 接 `flutter_map` + 轨迹回放，含 WGS-84 → GCJ-02
-- [ ] 登录与 token 持久化，移除 `Env.devUserId`
+- [x] 登录与 token 持久化，移除 `Env.devUserId`
 - [ ] 把心跳、告警接入 WebSocket
 - [ ] Android/iOS 权限配置：`BLUETOOTH_SCAN/CONNECT`、`NSBluetoothAlwaysUsageDescription`、NFC 能力声明
 

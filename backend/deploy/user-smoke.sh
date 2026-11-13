@@ -141,26 +141,28 @@ if [ "${CHECK_RATE_LIMIT:-0}" = "1" ]; then
   echo "== 认证限流 =="
   # 独立 CF-Connecting-IP 隔离限流桶，避免影响上面的正常请求。
   # 用非法 JSON 触发 400，避免为限流测试白跑 argon2。
-  rate_limited=0
-  for _ in 1 2 3 4 5 6; do
-    code=$(curl -sS --max-time 10 -o "$tmp/rate-body" -w '%{http_code}' \
-      -X POST -H 'Content-Type: application/json' \
-      -H 'CF-Connecting-IP: 203.0.113.99' \
-      "${access_args[@]}" \
-      --data 'not-json' \
-      "$BASE_URL/v1/auth/login" || true)
-    if [ "$code" = "429" ]; then
-      rate_limited=1
-      if grep -q '"error":"rate_limited"' "$tmp/rate-body"; then
-        pass "认证限流返回 429 JSON"
-      else
-        fail "认证限流响应体不符：$(cat "$tmp/rate-body")"
-      fi
-      break
-    fi
+  # 并发发送：公网往返延迟较高时，串行请求可能刚好落在允许速率内。
+  rate_dir="$tmp/rate"
+  mkdir -p "$rate_dir"
+  for n in $(seq 1 10); do
+    (
+      curl -sS --max-time 10 -o "$rate_dir/$n.body" -w '%{http_code}' \
+        -X POST -H 'Content-Type: application/json' \
+        -H 'CF-Connecting-IP: 203.0.113.99' \
+        "${access_args[@]}" \
+        --data 'not-json' \
+        "$BASE_URL/v1/auth/login" > "$rate_dir/$n.code" 2>/dev/null || true
+    ) &
   done
-  if [ "$rate_limited" -eq 0 ]; then
-    fail "连续认证请求未触发 429"
+  wait
+  if grep -qx 429 "$rate_dir"/*.code 2>/dev/null; then
+    if grep -l '"error":"rate_limited"' "$rate_dir"/*.body >/dev/null 2>&1; then
+      pass "并发认证请求触发 429 JSON"
+    else
+      fail "认证限流响应体不符"
+    fi
+  else
+    fail "并发认证请求未触发 429（codes: $(cat "$rate_dir"/*.code 2>/dev/null | tr '\n' ' ')）"
   fi
 fi
 

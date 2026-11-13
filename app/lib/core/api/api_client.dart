@@ -58,22 +58,61 @@ class DeviceView {
 /// - 只有 `features/*/data` 与 provider 可以持有它，widget 不得直接调用；
 /// - 所有错误统一转成 [ApiException]，UI 不需要认识 DioException。
 class ApiClient {
-  ApiClient({Dio? dio, String baseUrl = Env.apiBaseUrl, String? devUser})
+  ApiClient(
+      {Dio? dio,
+      String baseUrl = Env.apiBaseUrl,
+      this.token,
+      this.onUnauthorized})
       : _dio = dio ??
             Dio(
               BaseOptions(
                 baseUrl: baseUrl,
                 connectTimeout: const Duration(seconds: 10),
                 receiveTimeout: const Duration(seconds: 15),
+                followRedirects: false,
                 headers: {
                   'Content-Type': 'application/json',
-                  // TODO(M1): 换成 Authorization: Bearer <JWT>，并加 401 自动刷新。
-                  if (devUser != null) 'X-Dev-User': devUser,
+                  if (token != null) 'Authorization': 'Bearer $token',
                 },
               ),
             );
 
   final Dio _dio;
+  final String? token;
+  final void Function()? onUnauthorized;
+
+  Future<Map<String, dynamic>> authenticate(String email, String password,
+      {bool register = false}) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        register ? '/v1/auth/register' : '/v1/auth/login',
+        data: {'email': email, 'password': password},
+      );
+      return response.data ?? (throw ApiException('服务器返回空响应'));
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
+  Future<void> checkSession() async {
+    try {
+      await _dio.get<Map<String, dynamic>>('/v1/users/me');
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
+  Future<List<DeviceView>> fetchDevices() async {
+    try {
+      final response =
+          await _dio.get<Map<String, dynamic>>('/v1/users/me/devices');
+      return (response.data!['devices'] as List)
+          .map((item) => DeviceView.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
 
   /// 用 NFC 读到的声明码绑定设备。
   ///
@@ -127,7 +166,19 @@ class ApiClient {
 
   ApiException _toApiException(DioException e) {
     final res = e.response;
+    final status = res?.statusCode;
+    if (status != null && status >= 300 && status < 400) {
+      return ApiException('服务入口不可用，请稍后重试',
+          code: 'service_unavailable', statusCode: status);
+    }
     final data = res?.data;
+    if ((status == 401 || status == 403) && data is! Map<String, dynamic>) {
+      return ApiException('服务响应异常，请稍后重试',
+          code: 'unexpected_response', statusCode: status);
+    }
+    if (status == 401 && token != null && data is Map<String, dynamic>) {
+      onUnauthorized?.call();
+    }
     if (data is Map<String, dynamic>) {
       final message = data['message'] as String?;
       if (message != null) {
