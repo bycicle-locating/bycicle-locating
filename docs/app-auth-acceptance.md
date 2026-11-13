@@ -5,9 +5,9 @@
 2026-11-13：新版后端已上传到服务器独立目录 `/opt/bkl-auth-validation-20261113`。
 运行 `GOPROXY=https://goproxy.cn,direct bash deploy/e2e-postgres.sh` 通过：Postgres 迁移、注册、JWT 用户查询、修改资料、车辆列表、绑定、解绑、解绑后拒绝访问、认证限流。测试栈已由脚本清理。Store 集成单测未运行（服务器宿主没有 Go）。
 
-正式入口已切到 Postgres + JWT（APP_ENV=prod）：匿名访问 `/v1/users/me` 返回 401。服务器经公网 HTTPS 域名、使用 Access 服务令牌执行用户冒烟通过：健康检查、注册、用户查询、修改资料和车辆列表。尚未完成开发机外部请求和手机端验收；上述结果不代表手机 Access 已配置。
+正式入口已切到 Postgres + JWT（APP_ENV=prod）。管理员配置公开 API 域名后，已从开发机不携带 Access 凭据执行 `BASE_URL=https://api.bycicle-locating.top bash backend/deploy/user-smoke.sh`，健康检查、注册、JWT 用户查询、修改资料和车辆列表通过。匿名、伪造 JWT、仅带开发身份头访问 `/v1/users/me` 均返回 401；公开域名 `/admin` 返回 404，原受保护域名 `/healthz` 仍返回 302。尚未完成手机真机完整闭环验收。
 
-## 普通用户公网访问方案（待实施）
+## 普通用户公网访问方案
 
 普通用户安装 App 后直接注册、登录，无需安装 Cloudflare One Client、加入 Zero Trust 组织或由管理员逐个放行邮箱。One Client 仅可作为开发团队的联调方式，不是产品使用前提。
 
@@ -26,7 +26,7 @@
 3. 从开发机在不携带 Access cookie、服务令牌且未连接 One Client 的条件下，完成下列公网验收。
 4. 验收通过后，将 App 默认 API 地址切换到 `https://api.bycicle-locating.top` 并重新构建。WebSocket 尚未实现，不因本方案宣称其可用。
 
-本次提交记录方案，未修改 DNS、Tunnel、Access 或 App 默认地址；代码当前仍请求 `https://bycicle-locating.top`。需要 Cloudflare 管理员配置或相应管理 API 权限才能实施入口切换。现有服务器公网冒烟结果仅证明旧受保护入口可用，不证明新 API 域名可用。
+管理员已配置公开 API 入口，开发机外部冒烟通过，App 默认地址已切换到 `https://api.bycicle-locating.top`。本次未修改 Cloudflare 配置；仍需真机验证登录、会话恢复与测试设备绑定/解绑。
 
 ## 正式后端切换
 

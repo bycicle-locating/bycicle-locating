@@ -6,10 +6,10 @@
 class Env {
   const Env._();
 
-  /// 公网联调入口；Access 身份认证由 Cloudflare One Client 完成。
+  /// 公开 API 入口；业务请求使用用户 JWT 鉴权。
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://bycicle-locating.top',
+    defaultValue: 'https://api.bycicle-locating.top',
   );
 
   /// WebSocket 基址（实时位置与告警推送，M1 接入）。
