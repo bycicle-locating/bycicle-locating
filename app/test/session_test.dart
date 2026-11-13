@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:bkl_app/core/api/api_client.dart';
+import 'package:bkl_app/core/providers.dart';
 import 'package:bkl_app/core/session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -15,6 +16,27 @@ class AuthApi extends ApiClient {
         'expiresAt':
             DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
       };
+}
+
+class AccountSession extends SessionController {
+  AccountSession(this.initial);
+  final String? initial;
+  @override
+  Future<String?> build() async => initial;
+  void signIn(String token) => state = AsyncData(token);
+  void signOut() => state = const AsyncData(null);
+}
+
+class AccountDevicesApi extends ApiClient {
+  AccountDevicesApi(this.account);
+  final String? account;
+  @override
+  Future<List<DeviceView>> fetchDevices() async => account == null
+      ? []
+      : [
+          DeviceView(
+              id: 'bike-$account', model: '', state: 'CLAIMED', bound: true)
+        ];
 }
 
 void main() {
@@ -89,5 +111,36 @@ void main() {
     expect(ref.read(sessionProvider).hasError, isTrue);
     expect(
         await ref.read(sessionStorageProvider).read(key: 'session'), isNotNull);
+  });
+
+  test('合法 JSON 但字段类型错误时清理损坏会话', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      'session': jsonEncode({'token': 123, 'expiresAt': 456}),
+    });
+    final ref = container(check: (_) async => fail('损坏会话不应发请求'));
+    expect(await ref.read(sessionProvider.future), isNull);
+    expect(await ref.read(sessionStorageProvider).read(key: 'session'), isNull);
+  });
+
+  test('切换账号不保留上一个账号的车辆与选择', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final ref = ProviderContainer(overrides: [
+      sessionProvider.overrideWith(() => AccountSession('A')),
+      apiClientProvider.overrideWith(
+          (ref) => AccountDevicesApi(ref.watch(sessionProvider).valueOrNull)),
+    ]);
+    addTearDown(ref.dispose);
+    expect(await ref.read(sessionProvider.future), 'A');
+    expect((await ref.read(devicesProvider.future)).single.id, 'bike-A');
+    ref.read(selectedDeviceIdProvider.notifier).state = 'bike-A';
+    expect(ref.read(selectedDeviceProvider)?.id, 'bike-A');
+
+    await ref.read(sessionProvider.notifier).logout();
+    expect(await ref.read(devicesProvider.future), isEmpty);
+    expect(ref.read(selectedDeviceProvider), isNull);
+
+    (ref.read(sessionProvider.notifier) as AccountSession).signIn('B');
+    expect((await ref.read(devicesProvider.future)).single.id, 'bike-B');
+    expect(ref.read(selectedDeviceProvider)?.id, 'bike-B');
   });
 }

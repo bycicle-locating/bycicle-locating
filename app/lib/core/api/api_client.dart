@@ -168,13 +168,13 @@ class ApiClient {
     final res = e.response;
     final status = res?.statusCode;
     if (status != null && status >= 300 && status < 400) {
-      return ApiException('服务入口需要访问授权，请联系管理员',
-          code: 'access_required', statusCode: status);
+      return ApiException('服务入口不可用，请稍后重试',
+          code: 'service_unavailable', statusCode: status);
     }
     final data = res?.data;
     if ((status == 401 || status == 403) && data is! Map<String, dynamic>) {
-      return ApiException('请先连接已授权的 Cloudflare One Client，再重试',
-          code: 'access_required');
+      return ApiException('服务响应异常，请稍后重试',
+          code: 'unexpected_response', statusCode: status);
     }
     if (status == 401 && token != null && data is Map<String, dynamic>) {
       onUnauthorized?.call();

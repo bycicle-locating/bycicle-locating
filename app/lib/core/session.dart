@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'api/api_client.dart';
+import 'log.dart';
 
 final sessionStorageProvider = Provider((ref) => const FlutterSecureStorage());
 final sessionApiProvider = Provider((ref) => ApiClient());
@@ -25,28 +26,44 @@ class SessionController extends AsyncNotifier<String?> {
     return next;
   }
 
+  Future<void> _deleteStoredSession() async {
+    final storage = ref.read(sessionStorageProvider);
+    try {
+      await _store(() => storage.delete(key: 'session'));
+    } catch (error) {
+      logWarn('删除本地会话失败', error);
+    }
+  }
+
   @override
   Future<String?> build() async {
     ref.onDispose(() => _expiry?.cancel());
     final value = await ref.read(sessionStorageProvider).read(key: 'session');
     if (value == null) return null;
     try {
-      final data = jsonDecode(value) as Map<String, dynamic>;
-      final expires = DateTime.parse(data['expiresAt'] as String);
+      final decoded = jsonDecode(value);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('会话格式错误');
+      }
+      final rawToken = decoded['token'];
+      final rawExpires = decoded['expiresAt'];
+      if (rawToken is! String || rawExpires is! String) {
+        throw const FormatException('会话字段缺失');
+      }
+      final expires = DateTime.parse(rawExpires);
       if (!expires.isAfter(DateTime.now())) {
-        await ref.read(sessionStorageProvider).delete(key: 'session');
+        await _deleteStoredSession();
         return null;
       }
-      final token = data['token'] as String;
-      await ref.read(sessionCheckProvider)(token);
+      await ref.read(sessionCheckProvider)(rawToken);
       _schedule(expires);
-      return token;
+      return rawToken;
     } on ApiException catch (e) {
       if (e.statusCode != 401) rethrow;
-      await ref.read(sessionStorageProvider).delete(key: 'session');
+      await _deleteStoredSession();
       return null;
     } on FormatException {
-      await ref.read(sessionStorageProvider).delete(key: 'session');
+      await _deleteStoredSession();
       return null;
     }
   }
@@ -84,6 +101,15 @@ class SessionController extends AsyncNotifier<String?> {
     _expiry?.cancel();
     state = const AsyncData(null);
     final storage = ref.read(sessionStorageProvider);
-    await _store(() => storage.delete(key: 'session'));
+    try {
+      await _store(() => storage.delete(key: 'session'));
+    } catch (error) {
+      logWarn('清除本地会话失败，写入无效占位', error);
+      try {
+        await _store(() => storage.write(key: 'session', value: 'invalid'));
+      } catch (retryError) {
+        logError('清除本地会话仍失败', error: retryError);
+      }
+    }
   }
 }

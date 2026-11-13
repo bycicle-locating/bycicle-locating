@@ -12,10 +12,10 @@ class Env {
     defaultValue: 'https://api.bycicle-locating.top',
   );
 
-  /// WebSocket 基址（实时位置与告警推送，M1 接入）。
+  /// WebSocket 基址（M1 接入，握手与鉴权尚未实现）。
   static const String wsBaseUrl = String.fromEnvironment(
     'WS_BASE_URL',
-    defaultValue: 'ws://127.0.0.1:8080',
+    defaultValue: 'wss://api.bycicle-locating.top',
   );
 
   /// 绑定落地页域名，与 NFC 标签里写入的 URI 必须一致。
