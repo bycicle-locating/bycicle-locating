@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/providers.dart';
+import '../../../core/theme/app_surface.dart';
+import '../../../core/theme/floating_page.dart';
 
 class DevicePage extends ConsumerStatefulWidget {
   const DevicePage({super.key});
@@ -50,69 +52,102 @@ class _DevicePageState extends ConsumerState<DevicePage> {
   Widget build(BuildContext context) {
     final devices = ref.watch(devicesProvider);
     final selected = ref.watch(selectedDeviceProvider);
-    return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
-      navigationBar: const CupertinoNavigationBar(middle: Text('车辆')),
-      child: SafeArea(
-          child: ListView(children: [
-        CupertinoButton(
-            onPressed: () => ref.invalidate(devicesProvider),
-            child: const Text('刷新')),
-        devices.when(
-          skipLoadingOnRefresh: false,
-          loading: () => const Center(child: CupertinoActivityIndicator()),
-          error: (e, _) => Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(e is ApiException ? e.message : '无法加载车辆，请重试')),
-          data: (items) => items.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(24), child: Text('尚未绑定车辆'))
-              : CupertinoListSection.insetGrouped(
-                  children: items
-                      .map((device) => CupertinoListTile(
+    return FloatingPage(
+      title: '车辆管理',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            devices.when(
+              skipLoadingOnRefresh: false,
+              loading: () => const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CupertinoActivityIndicator()),
+              error: (e, _) => AppSurface(
+                  child: Column(children: [
+                const AppEmpty(
+                    icon: CupertinoIcons.wifi_exclamationmark, title: '无法加载车辆'),
+                Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: CupertinoButton(
+                        onPressed: () => ref.invalidate(devicesProvider),
+                        child: const Text('重试'))),
+              ])),
+              data: (items) => items.isEmpty
+                  ? const AppSurface(
+                      child: AppEmpty(
+                          icon: Icons.pedal_bike,
+                          title: '尚未绑定车辆',
+                          message: '点击右上角 + 添加车辆。'))
+                  : AppSurface(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(children: [
+                        for (final device in items) ...[
+                          CupertinoListTile(
                             title: Text(device.label ?? device.id),
                             subtitle: Text(device.id),
                             trailing: selected?.id == device.id
-                                ? const Icon(CupertinoIcons.check_mark)
+                                ? Icon(CupertinoIcons.check_mark,
+                                    color:
+                                        CupertinoTheme.of(context).primaryColor)
                                 : null,
                             onTap: _busy
                                 ? null
                                 : () => ref
                                     .read(selectedDeviceIdProvider.notifier)
                                     .state = device.id,
-                          ))
-                      .toList()),
+                          ),
+                          if (device != items.last)
+                            Container(
+                                height: .5,
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                color: CupertinoColors.separator
+                                    .resolveFrom(context)),
+                        ],
+                      ])),
+            ),
+            if (selected != null &&
+                !devices.isLoading &&
+                !devices.hasError) ...[
+              const SizedBox(height: 16),
+              AppSurface(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(children: [
+                    CupertinoListTile(
+                        title: const Text('车型'),
+                        additionalInfo: Text(
+                            selected.model.isEmpty ? '暂无' : selected.model)),
+                    CupertinoListTile(
+                        title: const Text('固件'),
+                        additionalInfo: Text(selected.firmware ?? '暂无')),
+                    CupertinoListTile(
+                        title: const Text('最后在线'),
+                        subtitle: Text(
+                            selected.lastSeenAt?.toLocal().toString() ?? '暂无')),
+                  ])),
+              if (_error != null)
+                Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(_error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: CupertinoColors.systemRed
+                                .resolveFrom(context)))),
+              const SizedBox(height: 8),
+              CupertinoButton(
+                  onPressed: _busy ? null : () => _unbind(selected),
+                  child: _busy
+                      ? const CupertinoActivityIndicator()
+                      : Text('解绑车辆',
+                          style: TextStyle(
+                              color: CupertinoColors.systemRed
+                                  .resolveFrom(context)))),
+            ],
+          ],
         ),
-        if (selected != null && !devices.isLoading && !devices.hasError) ...[
-          CupertinoListSection.insetGrouped(children: [
-            CupertinoListTile(
-                title: const Text('车型'),
-                additionalInfo:
-                    Text(selected.model.isEmpty ? '暂无' : selected.model)),
-            CupertinoListTile(
-                title: const Text('固件'),
-                additionalInfo: Text(selected.firmware ?? '暂无')),
-            CupertinoListTile(
-                title: const Text('最后在线'),
-                subtitle:
-                    Text(selected.lastSeenAt?.toLocal().toString() ?? '暂无')),
-          ]),
-          CupertinoButton(
-              onPressed: _busy ? null : () => _unbind(selected),
-              child: _busy
-                  ? const CupertinoActivityIndicator()
-                  : const Text('解绑设备',
-                      style: TextStyle(color: CupertinoColors.systemRed))),
-        ],
-        if (_error != null)
-          Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(_error!,
-                  style: const TextStyle(color: CupertinoColors.systemRed))),
-        CupertinoButton.filled(
-            onPressed: _busy ? null : () => context.push('/device/pair'),
-            child: const Text('绑定设备')),
-      ])),
+      ),
     );
   }
 }

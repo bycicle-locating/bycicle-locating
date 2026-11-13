@@ -27,8 +27,8 @@ class AppTheme {
     primaryContrastingColor: primaryContrasting,
   );
 
-  /// 中文在 13–17pt 下容易显得拥挤，正文统一加字距与行高。
-  static const double tracking = 0.35;
+  /// 正文使用系统默认字距，保证中文和动态字体自然排版。
+  static const double tracking = 0;
   static const double bodyHeight = 1.5;
 
   static TextStyle secondaryText(BuildContext context, {double fontSize = 13}) {
