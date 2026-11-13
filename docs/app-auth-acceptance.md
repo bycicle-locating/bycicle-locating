@@ -7,6 +7,12 @@
 
 正式入口已切到 Postgres + JWT（APP_ENV=prod）。管理员配置公开 API 域名后，已从开发机不携带 Access 凭据执行 `BASE_URL=https://api.bycicle-locating.top bash backend/deploy/user-smoke.sh`，健康检查、注册、JWT 用户查询、修改资料和车辆列表通过。匿名、伪造 JWT、仅带开发身份头访问 `/v1/users/me` 均返回 401；公开域名 `/admin` 返回 404，原受保护域名 `/healthz` 仍返回 302。尚未完成手机真机完整闭环验收。
 
+### Android 模拟器实测
+
+2026-11-13：构建 debug APK 并安装到 `medium_phone` 模拟器，通过公开 API 完成注册、已有账号登录、杀进程后恢复会话、退出后重启仍显示登录页。使用专用虚拟设备 `BKL-TEST-20261113-0837` 完成手动绑定，车辆页与首页同步显示设备编号；确认解绑后车辆列表恢复为空。
+
+测试设备不对应物理硬件，验收后保持未绑定状态，保留测试账号和绑定审计记录。以上是 Android 模拟器实测，不代表物理手机、NFC/BLE、设备指令确认已验证；跨账号 UI 隔离、断网恢复与实际令牌到期仍需补充端到端验证。
+
 ## 普通用户公网访问方案
 
 普通用户安装 App 后直接注册、登录，无需安装 Cloudflare One Client、加入 Zero Trust 组织或由管理员逐个放行邮箱。One Client 仅可作为开发团队的联调方式，不是产品使用前提。
