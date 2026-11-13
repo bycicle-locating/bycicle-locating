@@ -1,6 +1,8 @@
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:go_router/go_router.dart';
 
@@ -225,7 +227,7 @@ class _LocationPin extends StatelessWidget {
 }
 
 /// 底部浮动状态卡：Liquid Glass 风格，承载唯一的主动作。
-class _StatusCard extends StatelessWidget {
+class _StatusCard extends ConsumerWidget {
   const _StatusCard({
     required this.primary,
     required this.onBind,
@@ -235,7 +237,9 @@ class _StatusCard extends StatelessWidget {
   final VoidCallback onBind;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final device = ref.watch(selectedDeviceProvider);
+    final devices = ref.watch(devicesProvider);
     final background = CupertinoColors.systemBackground.resolveFrom(context);
     final separator = CupertinoColors.separator.resolveFrom(context);
     return ClipRRect(
@@ -268,9 +272,13 @@ class _StatusCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '尚未绑定车辆',
-                          style: TextStyle(
+                        Text(
+                          devices.isLoading
+                              ? '加载车辆中…'
+                              : devices.hasError
+                                  ? '车辆加载失败'
+                                  : device?.label ?? device?.id ?? '尚未绑定车辆',
+                          style: const TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.15,
@@ -278,8 +286,7 @@ class _StatusCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '绑定后显示最后位置与在线状态\n'
-                          '地图与实时位置将在 M1 接入',
+                          '暂无位置',
                           style: AppTheme.secondaryText(context),
                         ),
                       ],

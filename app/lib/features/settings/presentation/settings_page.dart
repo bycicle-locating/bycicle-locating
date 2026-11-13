@@ -1,14 +1,16 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/session.dart';
 
 import '../../../core/env.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// 设置页。骨架阶段只展示编译期配置，便于排查"连的是哪个后端"。
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final headerStyle = AppTheme.sectionHeader(context);
     final footerStyle = AppTheme.secondaryText(context);
     return CupertinoPageScaffold(
@@ -62,6 +64,9 @@ class SettingsPage extends StatelessWidget {
                 ),
               ],
             ),
+            CupertinoButton(
+                onPressed: () => ref.read(sessionProvider.notifier).logout(),
+                child: const Text('退出登录')),
             const SizedBox(height: 24),
           ],
         ),

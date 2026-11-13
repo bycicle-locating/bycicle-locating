@@ -1,7 +1,15 @@
 import 'package:bkl_app/app.dart';
+import 'package:bkl_app/core/session.dart';
+import 'package:bkl_app/core/providers.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class SignedInSession extends SessionController {
+  @override
+  Future<String?> build() async => 'test-token';
+}
 
 Future<void> _pumpApp(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1080, 2400);
@@ -9,7 +17,10 @@ Future<void> _pumpApp(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  await tester.pumpWidget(const ProviderScope(child: BklApp()));
+  await tester.pumpWidget(ProviderScope(overrides: [
+    sessionProvider.overrideWith(SignedInSession.new),
+    devicesProvider.overrideWith((ref) async => []),
+  ], child: const BklApp()));
   await tester.pumpAndSettle();
 }
 

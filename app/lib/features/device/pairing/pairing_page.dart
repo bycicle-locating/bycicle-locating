@@ -99,10 +99,8 @@ class _PairingPageState extends ConsumerState<PairingPage> {
       _error = null;
     });
     try {
-      final device = await ref.read(apiClientProvider).bindDevice(
-            deviceId: deviceId,
-            claimCode: claimCode,
-          );
+      final device =
+          await ref.read(deviceActionsProvider).bind(deviceId, claimCode);
       logInfo('绑定成功', device.id);
       if (!mounted) {
         return;

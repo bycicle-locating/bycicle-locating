@@ -6,10 +6,10 @@
 class Env {
   const Env._();
 
-  /// 后端 REST 基址。默认指向本机 `go run ./cmd/server`。
+  /// 公网联调入口；Access 身份认证由 Cloudflare One Client 完成。
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8080',
+    defaultValue: 'https://bycicle-locating.top',
   );
 
   /// WebSocket 基址（实时位置与告警推送，M1 接入）。
@@ -22,13 +22,6 @@ class Env {
   static const String bindHost = String.fromEnvironment(
     'BIND_HOST',
     defaultValue: 'bkl.example.com',
-  );
-
-  /// 开发用户标识。仅用于本地联调（后端 APP_ENV=dev 时信任该请求头），
-  /// 接入 JWT 后必须删除。
-  static const String devUserId = String.fromEnvironment(
-    'DEV_USER_ID',
-    defaultValue: '11111111-1111-1111-1111-111111111111',
   );
 
   /// 近场判定：进入/退出阈值（dBm）。滞回 13 dB，防止边界抖动（pairing.md §6）。
