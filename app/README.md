@@ -43,22 +43,22 @@ flutter test                       # 26 项，已验证
 # 构建 Android debug APK
 flutter build apk --debug
 
-# Android 模拟器连本机后端：模拟器里的 127.0.0.1 是手机自己，要用 10.0.2.2
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+# Android 模拟器连接本机 Compose 的 nginx 入口
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:32525
 
-# 真机连本机后端：换成电脑的局域网 IP（与手机同一网段）
-flutter run --dart-define=API_BASE_URL=http://192.168.1.10:8080
+# Android 真机通过 USB 调试连接本机 Compose
+adb -d reverse tcp:32525 tcp:32525
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:32525
 ```
 
-> Debug 构建通过 `android/app/src/debug/res/xml/network_security_config.xml` 放行明文 HTTP；
-> release 不包含该配置，后端必须用 HTTPS。
+本地 HTTP 联调使用 Android debug 构建。若更改 Compose 的 `BKL_HTTP_PORT`，同步调整上述端口。公网地址与鉴权见 [部署与联调环境](../docs/deployment.md)。
 
 ## 结构
 
 ```
 lib/
   main.dart                 ProviderScope 入口
-  app.dart                  MaterialApp.router + 主题
+  app.dart                  CupertinoApp.router + 主题
   core/
     env.dart                编译期配置（--dart-define）与近场阈值
     log.dart                日志封装（禁止裸 print）
