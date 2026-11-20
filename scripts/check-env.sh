@@ -36,7 +36,7 @@ echo "== backend (Go 1.22+) =="
 check go go version
 
 echo
-echo "== app (Flutter 3.22+ / Dart 3.4+) =="
+echo "== app (CI: Flutter 3.47.9) =="
 check flutter flutter
 check dart dart
 

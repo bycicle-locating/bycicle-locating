@@ -11,9 +11,9 @@
 
 | 目录 | 角色 | 技术栈 | 状态 |
 |---|---|---|---|
-| `app/` | 手机端：绑定、地图、骑行记录 | Flutter + Riverpod + go_router | Android 已接入账号与车辆 API；NFC/BLE 为桩，地图与骑行记录为占位 |
+| `app/` | 手机端：绑定、地图、骑行记录 | Flutter + Riverpod + go_router | Android 已接入账号、车辆和轨迹 API；NFC/BLE 为桩，骑行记录为占位 |
 | `firmware/` | 车载硬件：采样、离线缓存、上报 | ESP-IDF v5.x (C) + NimBLE | 骨架，硬件模块为桩 |
-| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.27，pgx + x/crypto/argon2 | M1：Postgres 用户/设备 + JWT；MQTT 仍为桩 |
+| `backend/` | 云端：MQTT 接入 + HTTP API | Go 1.27，pgx + x/crypto/argon2 | M1：Postgres 用户/设备 + JWT；支持 MQTT TLS 上报入库 |
 | `docs/` | 契约与设计 | Markdown | **跨端唯一真相** |
 
 硬件（**已实测**，见 `docs/hardware.md` §0）：**ESP32-S3**（8 MB flash / 带 PSRAM）+ Quectel **EC800MCNGB**
@@ -84,7 +84,7 @@ idf.py set-target esp32s3 && idf.py build
 - **幂等靠主键**：`INSERT ... ON CONFLICT (device_id, seq) DO NOTHING`，不做"先查再插"。
 - 绑定必须**原子**：校验声明码 + 占用该码 + 写车主在同一次写操作内（data-model.md §3）。
 - 后端依赖面保持最小：Postgres 用 `pgx`，密码哈希用 `x/crypto/argon2`；新增依赖前先说清楚理由。
-- `APP_ENV=prod` 缺 `DATABASE_URL` 或 `JWT_SECRET` 会**拒绝启动**——这是有意为之，别为了"跑起来"绕过它。
+- `APP_ENV=prod` 必须配置 `DATABASE_URL`、独立的 `JWT_SECRET` 和带凭据的 `mqtts://` Broker。
 - 配置 `DATABASE_URL` 后必须显式设置独立 `JWT_SECRET`；公开的开发默认 secret 只允许纯内存 dev。
 
 ### 3.4 手机端

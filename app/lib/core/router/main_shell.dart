@@ -16,6 +16,12 @@ class PanelScrollScope extends InheritedWidget {
     return scope?.activeIndex == index ? scope?.controller : null;
   }
 
+  static bool isActive(BuildContext context, int index) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<PanelScrollScope>();
+    return scope == null || scope.activeIndex == index;
+  }
+
   @override
   bool updateShouldNotify(PanelScrollScope oldWidget) =>
       controller != oldWidget.controller ||
@@ -23,8 +29,13 @@ class PanelScrollScope extends InheritedWidget {
 }
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.navigationShell});
+  const MainShell({
+    super.key,
+    required this.navigationShell,
+    required this.mapBackgroundBuilder,
+  });
   final StatefulNavigationShell navigationShell;
+  final Widget Function(DraggableScrollableController) mapBackgroundBuilder;
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -71,42 +82,7 @@ class _MainShellState extends State<MainShell> {
                       Color(0xFFC9D8D4)
                     ]),
         ))),
-        SafeArea(child: LayoutBuilder(builder: (context, mapConstraints) {
-          return AnimatedBuilder(
-              animation: _sheet,
-              builder: (context, _) {
-                final size = _sheet.isAttached ? _sheet.size : .5;
-                final visibleHeight =
-                    (mapConstraints.maxHeight * (1 - size) - 8)
-                        .clamp(0.0, mapConstraints.maxHeight);
-                final opacity = ((visibleHeight - 120) / 80).clamp(0.0, 1.0);
-                if (visibleHeight < 40) return const SizedBox.shrink();
-                return IgnorePointer(
-                    child: Align(
-                        alignment: Alignment.topCenter,
-                        child: SizedBox(
-                            height: visibleHeight,
-                            child: Center(
-                                child: Opacity(
-                                    opacity: opacity,
-                                    child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(CupertinoIcons.location,
-                                              size: 30,
-                                              color: CupertinoColors
-                                                  .secondaryLabel
-                                                  .resolveFrom(context)),
-                                          const SizedBox(height: 10),
-                                          Text('地图暂不可用',
-                                              style: TextStyle(
-                                                  fontSize: 15,
-                                                  color: CupertinoColors
-                                                      .secondaryLabel
-                                                      .resolveFrom(context))),
-                                        ]))))));
-              });
-        })),
+        Positioned.fill(child: widget.mapBackgroundBuilder(_sheet)),
         SafeArea(child: LayoutBuilder(builder: (context, constraints) {
           final compact = constraints.maxHeight < 600 ||
               MediaQuery.textScalerOf(context).scale(17) > 24;

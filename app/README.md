@@ -4,7 +4,7 @@ Flutter 手机端。架构约定为 **Riverpod + feature-first**。
 
 新增或修改界面前必读 [App 视觉与交互规范](../docs/app-design-system.md)：统一设计令牌、亚克力材质、可展开底部面板、共享组件及视觉验收要求。现有页面尚未全面迁移，不应将旧页面的局部样式作为新设计基准。
 
-> **验证状态**：✅ Flutter 3.47.9 下通过 `flutter analyze`（0 issue）、`flutter test`（26 项）、
+> **验证状态**：✅ Flutter 3.47.9 下通过 `flutter analyze`（0 issue）、`flutter test`、
 > `dart format --set-exit-if-changed`；`flutter build apk --debug` 通过。模拟器完成公网注册、登录、会话恢复、绑定与解绑闭环。
 >
 > ✅ **Android 平台工程已生成**（`android/`，applicationId `top.byciclelocating.app`），可直接构建 debug APK。
@@ -25,7 +25,8 @@ flutter create --platforms=ios --org <你的域名> --project-name bkl_app .
 | `core/api`（dio 封装、错误归一化） | ✅ |
 | `core/nfc` 的 `BindTagParser` | ✅ 有单测 |
 | `core/ble` / `core/nfc` 插件接入 | ⛔ 接口 + 桩（M1） |
-| 地图、骑行列表、实时位置 | ⛔ 占位页 |
+| 地图 | ✅ 选中车辆的最新位置与最近 24 小时轨迹，地图铺在主面板下 |
+| 骑行列表 | ⛔ 占位页 |
 | 登录 / JWT / 会话恢复 | ✅ 安全存储 + 过期处理 |
 | 车辆绑定、列表、解绑 | ✅ 接入公网 API |
 | 视觉规范与共享组件 | ✅ `docs/app-design-system.md`、`core/theme` |
@@ -38,7 +39,7 @@ flutter create --platforms=ios --org <你的域名> --project-name bkl_app .
 flutter pub get
 flutter analyze                    # 必须 0 issue（已验证）
 dart format --set-exit-if-changed .
-flutter test                       # 26 项，已验证
+flutter test
 
 # 构建 Android debug APK
 flutter build apk --debug
@@ -52,6 +53,8 @@ flutter run --dart-define=API_BASE_URL=http://127.0.0.1:32525
 ```
 
 本地 HTTP 联调使用 Android debug 构建。若更改 Compose 的 `BKL_HTTP_PORT`，同步调整上述端口。公网地址与鉴权见 [部署与联调环境](../docs/deployment.md)。
+
+地图需要支持 [位置与轨迹接口](../docs/http-api.md#31-最新位置与轨迹) 的后端。地图在浮动面板下全屏铺底，切换标签时保留地图视角。App 在前台时每 10 秒刷新所选车辆。底图使用 OpenStreetMap，App 显示数据署名并使用本地瓦片缓存。
 
 ## 结构
 
@@ -80,7 +83,7 @@ test/
    `data/`（repository、DTO）、`domain/`（模型）、`presentation/`（页面与 provider）。
 2. **跨 feature 只经 `core/`**。`features/map` 不许 import `features/ride` 的内部文件。
 3. **widget 不发请求**：网络调用只出现在 `data/` 层或 provider 里，页面 watch provider。
-4. **单位转换只在展示层**：后端存 m/s，UI 显示 km/h；坐标存 WGS-84，显示前转 GCJ-02。
+4. **单位转换只在展示层**：后端存 m/s，UI 显示 km/h。坐标存 WGS-84，OpenStreetMap 底图直接使用 WGS-84。
 5. **不引入代码生成**：骨架阶段模型手写。要做 `freezed`/`json_serializable` 时，
    同步更新 `.gitignore`（已预置 `*.g.dart`、`*.freezed.dart`）与 `analysis_options.yaml`。
 
@@ -88,7 +91,8 @@ test/
 
 - [ ] 接 `nfc_manager`：`readBindTag()` 读 NDEF URI，交给现有 `BindTagParser`
 - [ ] 接 `flutter_blue_plus`：实现 `BleClient.watchStatus`，含 MTU 协商与分片（pairing.md §5.3）
-- [ ] 接 `flutter_map` + 轨迹回放，含 WGS-84 → GCJ-02
+- [x] 接 `flutter_map` 显示最新位置和最近轨迹
+- [ ] 骑行记录的轨迹回放
 - [x] 登录与 token 持久化，移除 `Env.devUserId`
 - [ ] 把心跳、告警接入 WebSocket
 - [ ] Android/iOS 权限配置：`BLUETOOTH_SCAN/CONNECT`、`NSBluetoothAlwaysUsageDescription`、NFC 能力声明

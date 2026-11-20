@@ -5,7 +5,7 @@
 
 > CI 验证覆盖后端构建与部署：
 > - `go build` / `go vet` / `go test` / `gofmt -l` 通过；
-> - 内存栈 Docker Compose e2e、Postgres 栈（迁移 + JWT + 用户/设备）e2e 通过；
+> - Docker Compose 验证内存栈、Postgres 用户栈和 MQTT TLS 遥测入库；
 > - 未装 Go 时可这样复现静态检查：
 >
 > ```bash
@@ -19,12 +19,12 @@
 |---|---|
 | `internal/protocol` | ✅ 已完成（信封解析与校验、主题解析、指令编码） |
 | `internal/store` | ✅ Memory + Postgres 实现 + `internal/store/migrations` |
-| `internal/ingest` | ✅ 骨架完成（去重、事件、状态），指令确认待 M1 |
+| `internal/ingest` | ✅ 遥测去重、事件和状态持久化；指令确认写入日志 |
 | `internal/device` | ✅ 绑定、解绑和声明码 HMAC 校验。nginx 已按 IP 限流，账号级限流待实现 |
 | `internal/auth` | ✅ HS256 JWT 签发/校验 |
 | `internal/user` | ✅ 注册/登录/资料/我的设备；argon2id 密码哈希 |
-| `internal/api` | ✅ `/healthz`、用户、JWT、绑定/解绑/查设备 |
-| `internal/mqtt` | ⚠️ 只有 `LogBus`，不会真收发；paho 实现属 M1 |
+| `internal/api` | ✅ `/healthz`、用户、JWT、绑定/解绑、车主位置与轨迹 |
+| `internal/mqtt` | ✅ Paho MQTT 3.1.1，TLS 校验、持久会话、重连订阅和 QoS 1 确认 |
 
 ## 部署（Docker Compose）
 
@@ -52,11 +52,39 @@ docker compose up -d --build --force-recreate --wait
   配置 `DATABASE_URL` 后必须显式设置独立 `JWT_SECRET`，公开的开发默认值会被拒绝。
   容器内主机名是 `postgres`，密码含特殊字符时需要 URL-encode。
 - `deploy/migrate` 是一次性 `psql` 任务，SQL 在 `internal/store/migrations/`；应用启动只做 schema 检查，不会自动建表。
-- TLS 由 Cloudflare Tunnel 终止；nginx 只在内网监听 HTTP。
+- 公网 HTTP API 的 TLS 由 Cloudflare 终止，nginx 只监听内网 HTTP。MQTT 的 TLS 由 Mosquitto 终止。
 - 若服务器在中国大陆云厂商，域名需完成 ICP 备案；未备案时云厂商边缘会按 Host 拦截
   （阿里云返回 `Server: Beaver` 的 403），换非标端口也不能绕过，与 nginx / 后端无关。
   当前通过 Cloudflare Tunnel 主动出站绕开该入站拦截。
 - Postgres 模式下绑定/用户/轨迹持久化在 `pg-data` 卷；内存模式 `docker compose restart backend` 会丢数据。
+
+### MQTT 接入
+
+生产启动前设置 `MQTT_URL=mqtts://<broker>:8883`、`MQTT_USER` 和 `MQTT_PASSWORD`。使用私有 CA 时，Compose 默认将
+`deploy/certs/` 只读挂到 `/run/bkl/mqtt`，通过 `MQTT_CA_FILE=/run/bkl/mqtt/mqtt-ca.crt` 启用校验。
+自备 CA 目录可用 `MQTT_CA_DIR` 指定。每个在运行的后端实例使用不同的 `MQTT_CLIENT_ID`，同一实例重启后沿用其 ID。
+
+开发时可将 `MQTT_URL` 留空，只启动 HTTP。使用本地匿名 Broker 时，在 Compose 中配置 `tcp://broker:1883`，
+在宿主机运行 Go 时配置 `tcp://127.0.0.1:1883`。
+
+后端校验主题、载荷、两者的设备 ID 和报文类型，以及设备注册记录。有效的 QoS 1 报文在写入成功后确认。
+永久无效的报文丢弃后确认，临时数据库错误会重试。Postgres 以 `(device_id, seq)` 为键处理重传。
+
+### 设备登记
+
+Postgres 完成迁移后，可用后端镜像中的 `bkl-device-admin` 登记设备。命令读取同一部署的 `DATABASE_URL` 和 `CLAIM_PEPPER`。
+以 `BKL-2026-990001` 为例，将一次性输出的明文声明码保存到仅操作者可读的文件。
+
+```bash
+umask 077
+claim_output=$(mktemp)
+docker compose --profile deps run --rm --no-deps -T \
+  --entrypoint /usr/local/bin/bkl-device-admin backend \
+  -id BKL-2026-990001 -model BKL1 >"$claim_output"
+```
+
+声明码用于车辆绑定。数据库仅保存带 pepper 的 HMAC，重复编号会拒绝登记并保留原码。
+设备的 MQTT 用户名使用同一编号，独立密码和主题 ACL 在 Broker 上配置。
 
 ### 全链路测试
 
@@ -77,6 +105,9 @@ BASE_URL="http://127.0.0.1:${BKL_HTTP_PORT:-32525}" \
 
 # Postgres 临时栈：postgres → migrate → backend → nginx → 用户/设备冒烟
 bash deploy/e2e-postgres.sh
+
+# 生产配置的隔离栈：设备登记、TLS 上报、去重、恢复与车主轨迹查询
+bash deploy/e2e-mqtt.sh
 ```
 
 `deploy/user-smoke.sh` 会注册测试账号。公网的只读验证命令见 [部署与联调环境](../docs/deployment.md#4-联通验证)。
@@ -133,7 +164,7 @@ internal/ingest/          报文落库服务（纯逻辑，可单测）
 internal/device/          绑定领域服务 + 声明码哈希
 internal/auth/            HS256 JWT 签发/校验
 internal/user/            注册、登录、资料、argon2id
-internal/mqtt/            Bus 接口 + 日志实现
+internal/mqtt/            Bus 接口、Paho TLS 客户端
 internal/api/             HTTP handler 与中间件
 internal/config/          环境变量
 Dockerfile                多阶段构建 → 非 root 静态镜像
@@ -156,7 +187,6 @@ deploy/e2e-postgres.sh    Postgres 栈全链路测试
 
 ## 待办（M1）
 
-- [ ] paho MQTT 客户端实现 `mqtt.Bus`，接 `wireIngest`
 - [ ] `cmd_ack` 更新 `commands` 状态
 - [ ] 绑定限流（同账号 10 次/小时）
 - [ ] refresh token / logout / 改密 / 邮箱验证

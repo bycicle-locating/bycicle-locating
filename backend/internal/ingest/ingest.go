@@ -60,6 +60,9 @@ func New(st store.Store, opts ...Option) *Service {
 // 且不视为错误——设备重传是正常行为。
 func (s *Service) Handle(ctx context.Context, msg protocol.Message) (Result, error) {
 	res := Result{Kind: msg.Kind}
+	if _, err := s.store.Device(ctx, msg.DeviceID); err != nil {
+		return res, fmt.Errorf("ingest: 查找报文设备: %w", err)
+	}
 	now := s.now()
 
 	switch msg.Kind {

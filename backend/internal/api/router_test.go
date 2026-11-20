@@ -16,6 +16,7 @@ import (
 	"github.com/bycicle-locating/backend/internal/auth"
 	"github.com/bycicle-locating/backend/internal/device"
 	"github.com/bycicle-locating/backend/internal/store"
+	"github.com/bycicle-locating/backend/internal/telemetry"
 	"github.com/bycicle-locating/backend/internal/user"
 )
 
@@ -55,7 +56,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *store.Memory) {
 		t.Fatalf("NewTokens: %v", err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := New(devices, users, tokens, JWTAuthenticator{Tokens: tokens}, log)
+	srv := New(devices, users, telemetry.New(mem), tokens, JWTAuthenticator{Tokens: tokens}, log)
 	return httptest.NewServer(srv.Routes()), mem
 }
 

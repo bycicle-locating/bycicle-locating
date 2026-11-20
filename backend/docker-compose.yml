@@ -30,6 +30,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       JWT_TTL: ${JWT_TTL:-24h}
       JWT_ISSUER: ${JWT_ISSUER:-bicycle-locating}
+      MQTT_URL: ${MQTT_URL:-}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-bkl-backend}
+      MQTT_CA_FILE: ${MQTT_CA_FILE:-}
     expose:
       - "8080"
     # deps profile 启用时先跑完迁移再启动；默认 profile 没有 migrate，
@@ -39,6 +44,13 @@ services:
         condition: service_completed_successfully
         required: false
     networks: [edge, data]
+    volumes:
+      - type: bind
+        source: ${MQTT_CA_DIR:-./deploy/certs}
+        target: /run/bkl/mqtt
+        read_only: true
+        bind:
+          create_host_path: false
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777

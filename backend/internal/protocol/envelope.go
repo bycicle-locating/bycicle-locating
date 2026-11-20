@@ -289,5 +289,8 @@ func decodeEvent(env envelope) (*Event, error) {
 }
 
 func validDeviceID(id string) bool {
-	return deviceIDFactory.MatchString(id) || deviceIDLoose.MatchString(id)
+	return ValidFactoryDeviceID(id) || deviceIDLoose.MatchString(id)
 }
+
+// ValidFactoryDeviceID 校验新设备使用的产线编号。
+func ValidFactoryDeviceID(id string) bool { return deviceIDFactory.MatchString(id) }

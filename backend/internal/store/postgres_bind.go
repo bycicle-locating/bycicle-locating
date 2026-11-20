@@ -70,6 +70,11 @@ func (p *Postgres) TouchLastSeen(ctx context.Context, deviceID string, at time.T
 }
 
 func (p *Postgres) SeedDevice(ctx context.Context, d Device, claimCodeHash string) error {
+	_, err := p.insertDevice(ctx, d, claimCodeHash)
+	return err
+}
+
+func (p *Postgres) insertDevice(ctx context.Context, d Device, claimCodeHash string) (bool, error) {
 	state := d.State
 	if state == "" {
 		state = StateClaimable
@@ -78,10 +83,11 @@ func (p *Postgres) SeedDevice(ctx context.Context, d Device, claimCodeHash strin
 	if claimCodeHash != "" {
 		hash = claimCodeHash
 	}
-	if _, err := p.pool.Exec(ctx, `INSERT INTO devices (id, model, state, claim_code_hash)
+	tag, err := p.pool.Exec(ctx, `INSERT INTO devices (id, model, state, claim_code_hash)
 		VALUES (@id, @model, @state, @hash) ON CONFLICT (id) DO NOTHING`,
-		pgx.NamedArgs{"id": d.ID, "model": d.Model, "state": state, "hash": hash}); err != nil {
-		return fmt.Errorf("store: 注册演示设备: %w", err)
+		pgx.NamedArgs{"id": d.ID, "model": d.Model, "state": state, "hash": hash})
+	if err != nil {
+		return false, fmt.Errorf("store: 登记设备: %w", err)
 	}
-	return nil
+	return tag.RowsAffected() != 0, nil
 }

@@ -7,6 +7,7 @@ import '../../features/auth/presentation/login_page.dart';
 import '../../features/device/pairing/pairing_page.dart';
 import '../../features/device/presentation/device_page.dart';
 import '../../features/map/presentation/map_page.dart';
+import '../../features/map/presentation/map_backdrop.dart';
 import '../../features/ride/presentation/ride_list_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import 'main_shell.dart';
@@ -40,8 +41,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/map',
     routes: [
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) =>
-            MainShell(navigationShell: navigationShell),
+        builder: (context, state, navigationShell) => MainShell(
+          navigationShell: navigationShell,
+          mapBackgroundBuilder: (sheet) => MapBackdrop(sheet: sheet),
+        ),
         branches: [
           StatefulShellBranch(
             routes: [

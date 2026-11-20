@@ -24,6 +24,7 @@ import (
 	"github.com/bycicle-locating/backend/internal/mqtt"
 	"github.com/bycicle-locating/backend/internal/protocol"
 	"github.com/bycicle-locating/backend/internal/store"
+	"github.com/bycicle-locating/backend/internal/telemetry"
 	"github.com/bycicle-locating/backend/internal/user"
 )
 
@@ -92,16 +93,15 @@ func run() error {
 		}
 	}
 
-	bus := mqtt.NewLogBus(log)
+	bus, err := openBus(ctx, cfg, ing, log)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if cerr := bus.Close(); cerr != nil {
 			log.Warn("关闭 MQTT 总线失败", "err", cerr)
 		}
 	}()
-	if err := wireIngest(ctx, bus, ing, log); err != nil {
-		return err
-	}
-
 	authn, err := buildAuth(cfg, tokens, log)
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func run() error {
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.New(devices, users, tokens, authn, log).Routes(),
+		Handler:           api.New(devices, users, telemetry.New(st), tokens, authn, log).Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -140,13 +140,37 @@ func run() error {
 	return nil
 }
 
+func openBus(ctx context.Context, cfg config.Config, ing *ingest.Service, log *slog.Logger) (mqtt.Bus, error) {
+	if cfg.MQTTURL == "" {
+		log.Warn("未配置 MQTT_URL，当前只启动 HTTP API")
+		return mqtt.NewLogBus(log), nil
+	}
+	bus, err := mqtt.NewPahoBus(ctx, mqtt.BrokerConfig{
+		URL: cfg.MQTTURL, Username: cfg.MQTTUser, Password: cfg.MQTTPass,
+		CAFile: cfg.MQTTCAFile, ClientID: cfg.MQTTClientID,
+	}, log)
+	if err != nil {
+		return nil, err
+	}
+	if err := wireIngest(ctx, bus, ing, log); err != nil {
+		_ = bus.Close()
+		return nil, err
+	}
+	connectCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	if err := bus.Connect(connectCtx); err != nil {
+		_ = bus.Close()
+		return nil, err
+	}
+	return bus, nil
+}
+
 // wireIngest 把 MQTT 消息接到 ingest 服务。
 //
-// 这里做了三件安全相关的事：主题白名单、载荷校验、以及主题与载荷设备 ID 的一致性检查。
-// 三者任一不通过就丢弃并记录——宁可丢一条可疑报文，也不能让它进库。
+// 主题、载荷或两者不匹配时直接丢弃；持久化错误交给总线重试。
 func wireIngest(ctx context.Context, bus mqtt.Bus, ing *ingest.Service, log *slog.Logger) error {
 	handler := func(c context.Context, m mqtt.Message) error {
-		topicDevice, _, err := protocol.ParseTopic(m.Topic)
+		topicDevice, topicKind, err := protocol.ParseTopic(m.Topic)
 		if err != nil {
 			log.Warn("丢弃主题非法的报文", "topic", m.Topic, "err", err)
 			return nil
@@ -156,14 +180,21 @@ func wireIngest(ctx context.Context, bus mqtt.Bus, ing *ingest.Service, log *slo
 			log.Warn("丢弃无效报文", "topic", m.Topic, "err", err)
 			return nil
 		}
-		if msg.DeviceID != topicDevice {
-			// 设备凭据只允许写自己的主题；不一致说明账号被复用或有人伪造。
-			log.Warn("载荷设备与主题不一致",
-				"topic", m.Topic, "payloadDevice", msg.DeviceID)
+		if msg.DeviceID != topicDevice || msg.Kind != topicKind {
+			log.Warn("载荷与主题不一致",
+				"topic", m.Topic, "payloadDevice", msg.DeviceID, "payloadKind", msg.Kind)
 			return nil
 		}
 
 		res, err := ing.Handle(c, msg)
+		if errors.Is(err, store.ErrNotFound) {
+			log.Warn("丢弃未注册设备的报文", "topic", m.Topic)
+			return nil
+		}
+		if errors.Is(err, store.ErrInvalidUplink) {
+			log.Warn("丢弃无法持久化的报文", "topic", m.Topic, "err", err)
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("main: 处理报文: %w", err)
 		}
@@ -173,8 +204,7 @@ func wireIngest(ctx context.Context, bus mqtt.Bus, ing *ingest.Service, log *slo
 		return nil
 	}
 
-	// + 只匹配一层，因此 cmd/ack 需要单独订阅。
-	for _, filter := range []string{"v1/device/+/+", "v1/device/+/cmd/ack"} {
+	for _, filter := range []string{"v1/device/+/telemetry", "v1/device/+/event", "v1/device/+/status", "v1/device/+/cmd/ack"} {
 		if err := bus.Subscribe(ctx, filter, handler); err != nil {
 			return fmt.Errorf("main: 订阅 %s: %w", filter, err)
 		}

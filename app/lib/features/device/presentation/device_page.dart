@@ -52,6 +52,7 @@ class _DevicePageState extends ConsumerState<DevicePage> {
   Widget build(BuildContext context) {
     final devices = ref.watch(devicesProvider);
     final selected = ref.watch(selectedDeviceProvider);
+    final target = ref.watch(selectedTelemetryTargetProvider);
     return FloatingPage(
       title: '车辆管理',
       child: SingleChildScrollView(
@@ -111,6 +112,10 @@ class _DevicePageState extends ConsumerState<DevicePage> {
             if (selected != null &&
                 !devices.isLoading &&
                 !devices.hasError) ...[
+              if (target != null) ...[
+                const SizedBox(height: 16),
+                _TelemetryStatus(target: target),
+              ],
               const SizedBox(height: 16),
               AppSurface(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -150,4 +155,69 @@ class _DevicePageState extends ConsumerState<DevicePage> {
       ),
     );
   }
+}
+
+class _TelemetryStatus extends ConsumerWidget {
+  const _TelemetryStatus({required this.target});
+
+  final DeviceTelemetryTarget target;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ref
+      .watch(deviceTelemetryProvider(target))
+      .when(
+        loading: () => const Padding(
+          padding: EdgeInsets.all(32),
+          child: CupertinoActivityIndicator(),
+        ),
+        error: (error, _) => AppSurface(
+          child: Column(children: [
+            AppEmpty(
+              icon: CupertinoIcons.wifi_exclamationmark,
+              title: '无法加载位置',
+              message: error is ApiException ? error.message : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: CupertinoButton(
+                onPressed: () => refreshDeviceTelemetry(ref, target),
+                child: const Text('重试'),
+              ),
+            ),
+          ]),
+        ),
+        data: (data) {
+          final latest = data.current;
+          if (latest == null) {
+            return const AppSurface(
+              child: AppEmpty(
+                icon: CupertinoIcons.location,
+                title: '暂无位置',
+                message: '车辆上报后会显示在这里。',
+              ),
+            );
+          }
+          return AppSurface(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(children: [
+              CupertinoListTile(
+                title: const Text('上报时间'),
+                additionalInfo: Text(_localTime(latest.ts)),
+              ),
+              CupertinoListTile(
+                title: const Text('车速'),
+                additionalInfo:
+                    Text('${(latest.speedMps * 3.6).toStringAsFixed(1)} km/h'),
+              ),
+            ]),
+          );
+        },
+      );
+}
+
+String _localTime(DateTime utc) {
+  final time = utc.toLocal();
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
+  return '${twoDigits(time.month)}-${twoDigits(time.day)} '
+      '${twoDigits(time.hour)}:${twoDigits(time.minute)}';
 }

@@ -121,7 +121,7 @@
 - 只返回当前车主名下的设备，按 `claimedAt` 倒序。
 - 没有设备时返回 `{"devices":[]}`，不是 `null`。
 
-## 3. 设备（已有）
+## 3. 设备
 
 这些接口需要 Bearer token；详细安全语义见 [pairing.md](pairing.md)。
 
@@ -129,9 +129,22 @@
 |---|---|---|
 | POST | `/v1/devices:bind` | 绑定设备，body `{deviceId, claimCode, label?}` |
 | GET | `/v1/devices/{deviceID}` | 仅车主可读 |
+| GET | `/v1/devices/{deviceID}/location` | 当前绑定期间最新的遥测点 |
+| GET | `/v1/devices/{deviceID}/track` | 当前绑定期间的最近轨迹 |
 | DELETE | `/v1/devices/{deviceID}/binding` | 仅车主可解绑 |
 
 设备对象字段与“我的设备”中的元素一致。后端**不返回**车主 ID 与声明码哈希。
+
+### 3.1 最新位置与轨迹
+
+两个接口只允许当前车主访问。无有效 JWT 返回 `401 unauthenticated`。设备不存在、未绑定或属于其他账号时统一返回 `403 forbidden`。
+接口只读取采样时间和服务端接收时间均不早于本次绑定的点。上次绑定期间已收到的点都在查询范围之外。
+时钟异常下的补传归属见 [数据模型](data-model.md#3-一致性要点)。
+
+- `GET /v1/devices/{deviceID}/location` 返回 `seq` 最大的可见点。当前绑定期间没有可见点时返回 `404 not_found`。
+- `GET /v1/devices/{deviceID}/track?since=<RFC3339>&limit=<正整数>` 返回 `{ "points": [...] }`。默认查询过去 24 小时，包含 `ts >= since` 的点。默认和最大条数为 500，超过上限按 500。无效的 `since` 和格式错误或非正的 `limit` 返回 `400 bad_request`。先选 `seq` 最大的一批，再按 `seq` 升序返回。没有可见点时 `points` 为空数组。
+
+点对象字段为 `deviceId`、`seq`、`ts`（UTC RFC3339）、`lat`、`lon`（WGS-84）、`speedMps`、`courseDeg`、`fix`，以及有值时的 `altM`、`hdop`。
 
 ## 4. JWT
 

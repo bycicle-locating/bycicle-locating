@@ -52,6 +52,73 @@ class DeviceView {
   }
 }
 
+/// `/location` 和 `/track` 共用的遥测点。
+class DeviceTrackPoint {
+  const DeviceTrackPoint({
+    required this.deviceId,
+    required this.seq,
+    required this.ts,
+    required this.lat,
+    required this.lon,
+    required this.speedMps,
+    required this.courseDeg,
+    required this.fix,
+    this.altM,
+    this.hdop,
+  });
+
+  final String deviceId;
+  final int seq;
+  final DateTime ts;
+  final double lat;
+  final double lon;
+  final double speedMps;
+  final double courseDeg;
+  final int fix;
+  final double? altM;
+  final double? hdop;
+
+  factory DeviceTrackPoint.fromJson(Map<String, dynamic> json) {
+    try {
+      final point = DeviceTrackPoint(
+        deviceId: json['deviceId'] as String,
+        seq: json['seq'] as int,
+        ts: DateTime.parse(json['ts'] as String).toUtc(),
+        lat: (json['lat'] as num).toDouble(),
+        lon: (json['lon'] as num).toDouble(),
+        speedMps: (json['speedMps'] as num).toDouble(),
+        courseDeg: (json['courseDeg'] as num).toDouble(),
+        fix: json['fix'] as int,
+        altM: (json['altM'] as num?)?.toDouble(),
+        hdop: (json['hdop'] as num?)?.toDouble(),
+      );
+      if (!point.lat.isFinite ||
+          !point.lon.isFinite ||
+          point.lat.abs() > 90 ||
+          point.lon.abs() > 180 ||
+          !point.speedMps.isFinite ||
+          !point.courseDeg.isFinite) {
+        throw _invalidTelemetryResponse();
+      }
+      return point;
+    } on TypeError {
+      throw _invalidTelemetryResponse();
+    } on FormatException {
+      throw _invalidTelemetryResponse();
+    }
+  }
+}
+
+ApiException _invalidTelemetryResponse() =>
+    ApiException('服务器返回无效的遥测数据', code: 'unexpected_response');
+
+DeviceTrackPoint _pointForDevice(Object? value, String deviceId) {
+  if (value is! Map<String, dynamic>) throw _invalidTelemetryResponse();
+  final point = DeviceTrackPoint.fromJson(value);
+  if (point.deviceId != deviceId) throw _invalidTelemetryResponse();
+  return point;
+}
+
 /// 后端 HTTP 客户端。
 ///
 /// 约束：
@@ -155,6 +222,43 @@ class ApiClient {
     }
   }
 
+  Future<DeviceTrackPoint?> fetchLocation(String deviceId,
+      {CancelToken? cancelToken}) async {
+    try {
+      final response = await _dio.get<Object?>(
+        '/v1/devices/${Uri.encodeComponent(deviceId)}/location',
+        cancelToken: cancelToken,
+      );
+      return _pointForDevice(response.data, deviceId);
+    } on DioException catch (e) {
+      final error = _toApiException(e);
+      if (error.statusCode == 404 && error.code == 'not_found') return null;
+      throw error;
+    }
+  }
+
+  Future<List<DeviceTrackPoint>> fetchTrack(String deviceId,
+      {DateTime? since, int limit = 500, CancelToken? cancelToken}) async {
+    try {
+      final response = await _dio.get<Object?>(
+        '/v1/devices/${Uri.encodeComponent(deviceId)}/track',
+        queryParameters: {
+          if (since != null) 'since': since.toUtc().toIso8601String(),
+          'limit': limit.clamp(1, 500),
+        },
+        cancelToken: cancelToken,
+      );
+      final data = response.data;
+      if (data is! Map<String, dynamic> || data['points'] is! List) {
+        throw _invalidTelemetryResponse();
+      }
+      return List<DeviceTrackPoint>.unmodifiable((data['points'] as List)
+          .map((point) => _pointForDevice(point, deviceId)));
+    } on DioException catch (e) {
+      throw _toApiException(e);
+    }
+  }
+
   /// 解绑。只能由车主发起——App 不提供"设备侧长按"这条路径。
   Future<void> unbindDevice(String deviceId) async {
     try {
@@ -180,10 +284,11 @@ class ApiClient {
       onUnauthorized?.call();
     }
     if (data is Map<String, dynamic>) {
-      final message = data['message'] as String?;
-      if (message != null) {
+      final message = data['message'];
+      final code = data['error'];
+      if (message is String) {
         return ApiException(message,
-            code: data['error'] as String?, statusCode: res?.statusCode);
+            code: code is String ? code : null, statusCode: status);
       }
     }
     switch (e.type) {
