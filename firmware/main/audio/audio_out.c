@@ -1,5 +1,7 @@
 #include "audio_out.h"
 
+#include <string.h>
+
 #include "driver/i2s_std.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -12,16 +14,48 @@
 #define BKL_AUDIO_TAG "bkl.audio"
 
 #define BKL_AUDIO_QUEUE_DEPTH 4
+#define BKL_AUDIO_DMA_DESC_NUM 4
 #define BKL_AUDIO_CHUNK_FRAMES 256 /* 每个 DMA 块 = 256 采样 = 16 ms @16 kHz */
 #define BKL_AUDIO_TASK_STACK 4096
 #define BKL_AUDIO_TASK_PRIO 5
 #define BKL_AUDIO_WRITE_TIMEOUT_MS 200
+/* 额外等待余量：i2s_channel_disable() 不会等 DMA 队列播完。 */
+#define BKL_AUDIO_DRAIN_MARGIN_MS 20
 
 static i2s_chan_handle_t s_tx;
 static QueueHandle_t s_queue;
 static TaskHandle_t s_task;
 /* 只有音频任务会改它；其他任务读，用于 BLE 状态上报"正在响"。 */
 static volatile bool s_playing;
+
+static esp_err_t audio_write_all(const int16_t *samples, size_t frames)
+{
+    size_t bytes = frames * sizeof(int16_t);
+    size_t written = 0;
+
+    while (written < bytes) {
+        size_t sent = 0;
+        esp_err_t err = i2s_channel_write(s_tx, (const uint8_t *)samples + written,
+                                          bytes - written, &sent,
+                                          pdMS_TO_TICKS(BKL_AUDIO_WRITE_TIMEOUT_MS));
+        if (err != ESP_OK) {
+            if (err == ESP_ERR_TIMEOUT && sent > 0) {
+                written += sent;
+                continue; /* 超时但写出了部分数据：继续补剩余部分 */
+            }
+            ESP_LOGW(BKL_AUDIO_TAG, "i2s_channel_write 失败: %s（已写 %u/%u B）",
+                     esp_err_to_name(err), (unsigned)(written + sent), (unsigned)bytes);
+            return err;
+        }
+        if (sent == 0) {
+            ESP_LOGW(BKL_AUDIO_TAG, "i2s_channel_write 没有进展（%u/%u B）",
+                     (unsigned)written, (unsigned)bytes);
+            return ESP_ERR_TIMEOUT;
+        }
+        written += sent;
+    }
+    return ESP_OK;
+}
 
 static void audio_render_pattern(const bkl_beep_pattern_t *pattern)
 {
@@ -43,23 +77,41 @@ static void audio_render_pattern(const bkl_beep_pattern_t *pattern)
         return;
     }
 
+    bool wrote_any = false;
     int16_t chunk[BKL_AUDIO_CHUNK_FRAMES];
     for (;;) {
         size_t got = bkl_beep_stream_read(&stream, chunk, BKL_AUDIO_CHUNK_FRAMES);
         if (got == 0) {
             break;
         }
-        size_t sent = 0;
-        err = i2s_channel_write(s_tx, chunk, got * sizeof(int16_t), &sent,
-                                pdMS_TO_TICKS(BKL_AUDIO_WRITE_TIMEOUT_MS));
+        /* 最后一块通常不足 256 帧；补零到整 DMA 块，避免描述符尾部
+         * 残留上一轮的采样被一起播出去。 */
+        if (got < BKL_AUDIO_CHUNK_FRAMES) {
+            memset(chunk + got, 0, (BKL_AUDIO_CHUNK_FRAMES - got) * sizeof(chunk[0]));
+        }
+        wrote_any = true;
+        err = audio_write_all(chunk, BKL_AUDIO_CHUNK_FRAMES);
         if (err != ESP_OK) {
-            ESP_LOGW(BKL_AUDIO_TAG, "i2s_channel_write 失败: %s", esp_err_to_name(err));
             break;
+        }
+        if (got < BKL_AUDIO_CHUNK_FRAMES) {
+            break; /* 最后一块已补零写完 */
         }
     }
 
-    /* 播完就关通道：不再输出 BCLK/LRCLK，功放静音。 */
-    i2s_channel_disable(s_tx);
+    /* i2s_channel_disable() 会直接复位 DMA 队列，不等已排队的数据播完
+     * （esp_driver_i2s/i2s_common.c 的 i2s_channel_disable）。
+     * 等满一个 DMA 队列的时长再加余量，否则最后一声可能被截断。 */
+    if (wrote_any) {
+        uint32_t drain_ms = (BKL_AUDIO_DMA_DESC_NUM * BKL_AUDIO_CHUNK_FRAMES * 1000u) /
+                            CONFIG_BKL_AUDIO_SAMPLE_RATE_HZ + BKL_AUDIO_DRAIN_MARGIN_MS;
+        vTaskDelay(pdMS_TO_TICKS(drain_ms) + 1);
+    }
+
+    err = i2s_channel_disable(s_tx);
+    if (err != ESP_OK) {
+        ESP_LOGW(BKL_AUDIO_TAG, "i2s_channel_disable 失败: %s", esp_err_to_name(err));
+    }
 }
 
 static void audio_task(void *arg)
@@ -83,8 +135,10 @@ esp_err_t bkl_audio_init(void)
     }
 
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
-    chan_cfg.dma_desc_num = 4;
+    chan_cfg.dma_desc_num = BKL_AUDIO_DMA_DESC_NUM;
     chan_cfg.dma_frame_num = BKL_AUDIO_CHUNK_FRAMES;
+    /* DMA 块发送后自动清零：欠载或下一次播放时输出静音，而不是上一轮的残留采样。 */
+    chan_cfg.auto_clear_after_cb = true;
 
     esp_err_t err = i2s_new_channel(&chan_cfg, &s_tx, NULL);
     if (err != ESP_OK) {
@@ -147,7 +201,7 @@ esp_err_t bkl_audio_init(void)
 
 esp_err_t bkl_audio_play(const bkl_beep_pattern_t *pattern)
 {
-    if (pattern == NULL) {
+    if (pattern == NULL || bkl_beep_segment_count(pattern) > BKL_BEEP_MAX_SEGMENTS) {
         return ESP_ERR_INVALID_ARG;
     }
     if (s_queue == NULL) {

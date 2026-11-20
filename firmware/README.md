@@ -10,8 +10,9 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 > - **硬件 bring-up（2026-10-30）**：✅ 模组 EC800MCNGB 已通过 UART1（GPIO17/16）验证——
 >   `AT` / `ATI` / `AT+CPIN?` / `AT+CSQ` / `AT+CREG?` / `AT+CGREG?` 全部正常，`AT+QGPS=1` 返回 OK。
 >   详见 `docs/hardware.md` §0。验证时板子跑的是 MicroPython，用的是 `scripts/at-probe.py`。
-> - ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`、`audio/audio_out.c`）：⛔ **尚未编译验证**，
->   编写时机器上没有 ESP-IDF。首次 `idf.py build` 预计需修少量编译错误。
+> - ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`、`audio/audio_out.c`）：✅ 已用
+>   ESP-IDF v5.5.6 `idf.py build` 通过（2026-11-13，本地 `fwbuild/` 产物已链接 `bkl.audio`）；
+>   ⛔ 真机尚未验证（喇叭、I²S 接线与最后一声是否完整）。
 
 ## 实现状态
 
@@ -22,7 +23,7 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 | `main/track/ringbuf` | ✅ 主机已验证 | 掉电安全环形缓冲，存储后端可替换 |
 | `main/track/uploader` | ✅ 主机已验证 | 批量/退避/成功后 commit |
 | `main/audio/tone_gen` | ✅ 主机已验证 | 整数相位累加器合成方波与提示音段序列 |
-| `main/audio/audio_out` | ⛔ 未编译 | I²S 数字功放输出（M1，等首次 `idf.py build`） |
+| `main/audio/audio_out` | ✅ 编译通过 | I²S 数字功放输出（v5.5.6 构建通过；真机未验证） |
 | `main/modem/modem_at` | ⛔ 桩 | AT 引擎（M1） |
 | `main/modem/modem_mqtt` | ⛔ 桩 | QMTOPEN/CONN/PUBEX（M1） |
 | `main/modem/modem_gnss` | ⛔ 桩 | QGPS 采样（M1） |
@@ -34,6 +35,10 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 提示音**不是**无源蜂鸣器：实物是 I²S 数字功放模块（见 `docs/hardware.md` §3.2），
 所以用 `i2s_std` 推 16 bit 单声道 PCM，**不能**用 LEDC/PWM 直驱；`tone_gen` 只算 PCM，
 主机上就能验证波形与时长，接上板子只需确认喇叭是否响。
+
+播放收尾：最后一块 PCM 会补零到整 DMA 块，并在关闭 I²S 前等待一个 DMA 队列时长
+（4×256 帧 ≈ 64 ms @16 kHz，另加余量）。这是因为 `i2s_channel_disable()` 会直接复位
+DMA 队列、不等已排队数据播完；不等待会把最后一声截断。听到三声后短暂静音属正常。
 
 ## 命令
 
@@ -120,5 +125,5 @@ main/
 - [ ] `modem_mqtt` 的 QMTOPEN/CONN/PUBEX 与断线重连
 - [ ] `modem_gnss` 的 QGPSLOC 解析（注意 km/h → m/s）
 - [ ] 采集任务与上报任务分离，用事件组驱动
-- [ ] 首次 `idf.py build` 后真机验证 `audio_out`：I²S 接线（14/13/12）、音量、找车音可听距离
+- [ ] 真机验证 `audio_out`：I²S 接线（14/13/12）、音量、找车音可听距离与最后一声是否完整
 - [ ] 扩充主机单测：满盘、掉电恢复、时区边界（`epoch_to_civil`）

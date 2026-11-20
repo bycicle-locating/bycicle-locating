@@ -30,3 +30,13 @@ jobs:
 
       - name: 运行主机单测
         run: ./test_core
+
+      - name: 编译提示音模块
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror \
+            -I main -I main/audio \
+            test/host/test_audio.c main/audio/tone_gen.c \
+            -o test_audio
+
+      - name: 运行提示音单测
+        run: ./test_audio

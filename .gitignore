@@ -69,3 +69,13 @@ secrets/
 # ---- 构建缓存 ----
 build/
 dist/
+
+# ---- 本地工具链与临时工作目录（不要提交） ----
+/Espressif/
+/fwbuild/
+/.dsh-work/
+/tmp/
+/pip-*/
+# ESP-IDF export.bat 在 Windows 下生成的临时文件
+esp_idf_activate_*/
+tmphb_*

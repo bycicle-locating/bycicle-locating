@@ -21,7 +21,7 @@
 /* 安装 I²S 通道并启动播放任务。引脚非法/通道被占用时返回错误。 */
 esp_err_t bkl_audio_init(void);
 
-/* 入队一段提示音；队列满时返回 ESP_ERR_TIMEOUT，调用方不应阻塞等待。 */
+/* 入队一段提示音；队列满时返回 ESP_ERR_TIMEOUT，pattern 段数超过上限时返回 ESP_ERR_INVALID_ARG。 */
 esp_err_t bkl_audio_play(const bkl_beep_pattern_t *pattern);
 
 /* 「找车」提示音：2 kHz 短促 3 声，总长约 0.6 s。 */
