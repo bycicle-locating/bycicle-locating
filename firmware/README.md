@@ -12,7 +12,8 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 >   详见 `docs/hardware.md` §0。验证时板子跑的是 MicroPython，用的是 `scripts/at-probe.py`。
 > - ESP-IDF 部分（`main.c`、`modem/`、`ble/`、`power/`、`audio/audio_out.c`）：✅ 已用
 >   ESP-IDF v5.5.6 `idf.py build` 通过（2026-11-13，本地 `fwbuild/` 产物已链接 `bkl.audio`）；
->   ⛔ 真机尚未验证（喇叭、I²S 接线与最后一声是否完整）。
+>   ✅ 真机已发声（2026-11-20，ESP32-S3 + I²S 模块，启动自检可听到提示音）；
+>   音量、可听距离与最后一声完整性仍待细测。
 
 ## 实现状态
 
@@ -23,7 +24,7 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 | `main/track/ringbuf` | ✅ 主机已验证 | 掉电安全环形缓冲，存储后端可替换 |
 | `main/track/uploader` | ✅ 主机已验证 | 批量/退避/成功后 commit |
 | `main/audio/tone_gen` | ✅ 主机已验证 | 整数相位累加器合成方波与提示音段序列 |
-| `main/audio/audio_out` | ✅ 编译通过 | I²S 数字功放输出（v5.5.6 构建通过；真机未验证） |
+| `main/audio/audio_out` | ✅ 真机已发声 | I²S 数字功放输出（v5.5.6 构建通过；2026-11-20 真机提示音验证） |
 | `main/modem/modem_at` | ⛔ 桩 | AT 引擎（M1） |
 | `main/modem/modem_mqtt` | ⛔ 桩 | QMTOPEN/CONN/PUBEX（M1） |
 | `main/modem/modem_gnss` | ⛔ 桩 | QGPS 采样（M1） |
@@ -125,5 +126,5 @@ main/
 - [ ] `modem_mqtt` 的 QMTOPEN/CONN/PUBEX 与断线重连
 - [ ] `modem_gnss` 的 QGPSLOC 解析（注意 km/h → m/s）
 - [ ] 采集任务与上报任务分离，用事件组驱动
-- [ ] 真机验证 `audio_out`：I²S 接线（14/13/12）、音量、找车音可听距离与最后一声是否完整
+- [ ] 真机验证 `audio_out`：已发声（2026-11-20），音量、可听距离与最后一声完整性待细测
 - [ ] 扩充主机单测：满盘、掉电恢复、时区边界（`epoch_to_civil`）

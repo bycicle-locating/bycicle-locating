@@ -116,6 +116,7 @@ S3 的引脚规则与经典 ESP32 差别很大，踩过的坑写在表后。
 - 固件对应：`main/audio/tone_gen.c`（纯 C 合成 PCM，主机单测覆盖）+ `main/audio/audio_out.c`（I²S 输出）；
   引脚与音量在 `idf.py menuconfig` → 自行车定位设备 → `BKL_AUDIO_LRCLK/BCLK/DIN/SAMPLE_RATE_HZ/AMPLITUDE`。
 - 没有接喇叭时模块不会响——`SPK` 座必须插 4 Ω/8 Ω 小喇叭（3 W 以内）。
+- 2026-11-20 实测：ESP32-S3 + 本模块 + 4 Ω 喇叭通过启动自检正常发声；音量、可听距离与最后一声完整性待细测。
 
 ### S3 引脚禁忌（照抄经典 ESP32 的表会在这里翻车）
 
