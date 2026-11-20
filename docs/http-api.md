@@ -129,7 +129,7 @@
 |---|---|---|
 | POST | `/v1/devices:bind` | 绑定设备，body `{deviceId, claimCode, label?}` |
 | GET | `/v1/devices/{deviceID}` | 仅车主可读 |
-| GET | `/v1/devices/{deviceID}/location` | 当前绑定期间最新的遥测点 |
+| GET | `/v1/devices/{deviceID}/location` | 当前绑定期间最新的有效定位点 |
 | GET | `/v1/devices/{deviceID}/track` | 当前绑定期间的最近轨迹 |
 | DELETE | `/v1/devices/{deviceID}/binding` | 仅车主可解绑 |
 
@@ -139,6 +139,7 @@
 
 两个接口只允许当前车主访问。无有效 JWT 返回 `401 unauthenticated`。设备不存在、未绑定或属于其他账号时统一返回 `403 forbidden`。
 接口只读取采样时间和服务端接收时间均不早于本次绑定的点。上次绑定期间已收到的点都在查询范围之外。
+位置和轨迹先筛选有定位的点（`fix` 为 `2` 或 `3`），再按 `seq` 取最新点或最近一批轨迹。
 时钟异常下的补传归属见 [数据模型](data-model.md#3-一致性要点)。
 
 - `GET /v1/devices/{deviceID}/location` 返回 `seq` 最大的可见点。当前绑定期间没有可见点时返回 `404 not_found`。

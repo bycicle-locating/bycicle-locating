@@ -33,6 +33,7 @@ func (p *Postgres) TelemetrySince(ctx context.Context, deviceID, ownerID string,
 		JOIN devices d ON d.id = t.device_id
 		WHERE t.device_id = @deviceID AND CAST(d.claimed_by AS text) = @ownerID
 			AND t.received_at >= d.claimed_at AND t.ts >= d.claimed_at
+			AND t.fix IN (2, 3)
 			AND t.lat IS NOT NULL AND t.lon IS NOT NULL
 			AND (CAST(@since AS timestamptz) IS NULL OR t.ts >= @since)
 		ORDER BY t.seq DESC LIMIT @limit`,

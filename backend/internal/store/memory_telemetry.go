@@ -44,7 +44,8 @@ func (m *Memory) visibleTelemetry(ctx context.Context, deviceID, ownerID string,
 		return points, nil
 	}
 	for _, point := range m.points[deviceID] {
-		if point.Time.Before(*d.ClaimedAt) || point.ReceivedAt.Before(*d.ClaimedAt) ||
+		if (point.Fix != 2 && point.Fix != 3) ||
+			point.Time.Before(*d.ClaimedAt) || point.ReceivedAt.Before(*d.ClaimedAt) ||
 			(!since.IsZero() && point.Time.Before(since)) {
 			continue
 		}

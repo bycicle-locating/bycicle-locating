@@ -33,8 +33,13 @@ func TestTelemetryRequiresCurrentOwner(t *testing.T) {
 	}
 
 	base := srv.URL + "/v1/devices/" + deviceID
+	if _, err := mem.InsertTelemetry(t.Context(), []store.TelemetryPoint{{
+		DeviceID: deviceID, Seq: 1, Time: bound.Add(time.Minute), ReceivedAt: bound.Add(time.Minute), Fix: 0,
+	}}); err != nil {
+		t.Fatal(err)
+	}
 	if status, body := request(t, http.MethodGet, base+"/location", ownerToken, nil); status != http.StatusNotFound || body["error"] != "not_found" {
-		t.Fatalf("车主查询无点时应得到 404 not_found，实际 %d %+v", status, body)
+		t.Fatalf("车主仅有无定位上报时应得到 404 not_found，实际 %d %+v", status, body)
 	}
 	status, body := request(t, http.MethodGet, base+"/track", ownerToken, nil)
 	if points, ok := body["points"].([]any); status != http.StatusOK || !ok || len(points) != 0 {
@@ -57,9 +62,13 @@ func TestLocationAndTrackUseSequenceWithinBinding(t *testing.T) {
 			Lat:        31.2, Lon: 121.4, SpeedMPS: 3.5, CourseDeg: 180, Fix: 3,
 		}
 	}
+	valid2D := point(11, 15, 20)
+	valid2D.Fix, valid2D.Lat, valid2D.Lon = 2, 0, 0
+	noFix := point(101, 16, 20)
+	noFix.Fix, noFix.Lat, noFix.Lon = 0, 0, 0
 	if _, err := mem.InsertTelemetry(t.Context(), []store.TelemetryPoint{
-		point(10, 10, 20), point(12, 5, 20), point(11, 15, 20),
-		point(99, 8, -1), point(100, -2, 20),
+		point(10, 10, 20), point(12, 5, 20), valid2D,
+		point(99, 8, -1), point(100, -2, 20), noFix,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -107,9 +116,9 @@ func TestTrackDefaultsTo24HoursAndClampsTo500(t *testing.T) {
 	mem.PutDevice(store.Device{ID: deviceID, ClaimedBy: &ownerID, ClaimedAt: &bound}, "")
 	points := make([]store.TelemetryPoint, 0, 506)
 	for seq := uint32(1); seq <= 505; seq++ {
-		points = append(points, store.TelemetryPoint{DeviceID: deviceID, Seq: seq, Time: now.Add(-time.Hour), ReceivedAt: now})
+		points = append(points, store.TelemetryPoint{DeviceID: deviceID, Seq: seq, Time: now.Add(-time.Hour), ReceivedAt: now, Fix: 3})
 	}
-	points = append(points, store.TelemetryPoint{DeviceID: deviceID, Seq: 506, Time: now.Add(-25 * time.Hour), ReceivedAt: now})
+	points = append(points, store.TelemetryPoint{DeviceID: deviceID, Seq: 506, Time: now.Add(-25 * time.Hour), ReceivedAt: now, Fix: 3})
 	if _, err := mem.InsertTelemetry(t.Context(), points); err != nil {
 		t.Fatal(err)
 	}

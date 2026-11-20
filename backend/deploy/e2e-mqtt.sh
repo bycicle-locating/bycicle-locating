@@ -179,9 +179,9 @@ fi
 telemetry_topic="v1/device/$device/telemetry"
 point_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 publish() {
-  local seq=$1 topic=$2 id=$3 payload
-  printf -v payload '{"v":1,"id":"%s","seq":%d,"ts":"%s","type":"telemetry","fw":"0.1.0","points":[{"seq":%d,"t":"%s","lat":31.23,"lon":121.47,"spd":2.5,"crs":0,"fix":3}]}' \
-    "$id" "$seq" "$point_time" "$seq" "$point_time"
+  local seq=$1 topic=$2 id=$3 fix=${4:-3} payload
+  printf -v payload '{"v":1,"id":"%s","seq":%d,"ts":"%s","type":"telemetry","fw":"0.1.0","points":[{"seq":%d,"t":"%s","lat":31.23,"lon":121.47,"spd":2.5,"crs":0,"fix":%d}]}' \
+    "$id" "$seq" "$point_time" "$seq" "$point_time" "$fix"
   compose exec -T broker-tls mosquitto_pub -h broker-tls -p 8883 --cafile /ca/mqtt-ca.crt \
     -u "$device" -P "$device_pass" -q 1 -t "$topic" -m "$payload"
 }
@@ -270,11 +270,19 @@ if [ "$(http_status "$owner_token" location)" != 403 ] ||
 fi
 sleep 1
 point_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-publish 51 "$telemetry_topic" "$device"
+publish 51 "$telemetry_topic" "$device" 2
 wait_until "新绑定的正常遥测应已入库" has_sequences 40,41,44,45,46,48,49,50,51
 if [ "$(read_sequences "$other_token" location)" != 51 ] ||
     [ "$(read_sequences "$other_token" track)" != 51 ]; then
   printf '%s\n' 'FAIL 新车主应只看到本次绑定的正常点' >&2
+  exit 1
+fi
+
+publish 52 "$telemetry_topic" "$device" 0
+wait_until "无定位的遥测应已入库" has_sequences 40,41,44,45,46,48,49,50,51,52
+if [ "$(read_sequences "$other_token" location)" != 51 ] ||
+    [ "$(read_sequences "$other_token" 'track?limit=1')" != 51 ]; then
+  printf '%s\n' 'FAIL 无定位上报不应替换最新位置或占用轨迹限额' >&2
   exit 1
 fi
 
