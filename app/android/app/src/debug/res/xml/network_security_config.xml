@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仅 debug 构建生效：允许明文 HTTP 访问本机后端
+  （模拟器 10.0.2.2、adb reverse 的 127.0.0.1、局域网 IP）。
+  release 不引用本文件，仍按 targetSdk 默认禁止明文流量。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

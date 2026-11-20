@@ -1,7 +1,8 @@
 // Package store 定义持久化 seam。
 //
-// 调用方（ingest / device / api）只依赖这里的接口与模型，不感知 SQL。
-// 当前只提供内存实现；Postgres 实现属于 M1，落地时不得把 pgx 类型泄漏到接口上。
+// 调用方（ingest / device / user / api）只依赖这里的接口与模型，不感知 SQL。
+// Memory 用于本地测试与无数据库开发；Postgres 用于需要持久化的环境。
+// 两个实现必须保持相同的领域语义，接口不得暴露 pgx/sql 类型。
 package store
 
 import (
@@ -15,6 +16,7 @@ var (
 	ErrNotFound     = errors.New("store: 记录不存在")
 	ErrAlreadyBound = errors.New("store: 设备已被绑定")
 	ErrNotBound     = errors.New("store: 设备未被绑定")
+	ErrEmailTaken   = errors.New("store: 邮箱已被占用")
 )
 
 // 设备状态，与 docs/pairing.md §4 一致。
@@ -35,6 +37,15 @@ type Device struct {
 	Label      string
 	LastSeenAt *time.Time
 	Config     map[string]any
+}
+
+// User 是账号。PasswordHash 只在这里与 user 服务内出现，API 不返回。
+type User struct {
+	ID           string
+	Email        string
+	PasswordHash string
+	DisplayName  string
+	CreatedAt    time.Time
 }
 
 // TelemetryPoint 是落库形态的轨迹点：比线格式多了设备与骑行归属。
@@ -83,7 +94,7 @@ type ClaimState struct {
 }
 
 // Store 是持久化接口。实现必须保证：
-//   - InsertTelemetry 对 (DeviceID, Seq) 幂等，返回实际新插入的条数；
+//   - InsertTelemetry 与 InsertEvent 对 (DeviceID, Seq) 幂等；
 //   - BindDevice 原子完成"校验未绑定 → 占用声明码 → 写车主"，并发下只有一个成功；
 //   - 所有方法尊重 ctx 取消。
 type Store interface {
@@ -102,10 +113,23 @@ type Store interface {
 	// 暴露该车的注册状态。
 	ClaimCodeHash(ctx context.Context, deviceID string) (ClaimState, error)
 	// BindDevice 把设备绑定到用户。调用前 device 服务已校验声明码；
-	// 本方法在同一次写操作里清空声明码并写入车主，已绑定时返回 ErrAlreadyBound。
+	// 本方法在原子写操作里写入车主，**不清除声明码哈希**，已绑定时返回 ErrAlreadyBound。
 	BindDevice(ctx context.Context, deviceID, userID, label string) (Device, error)
 	// UnbindDevice 只写 claimed_by=NULL 并记录审计，不清除轨迹历史。
 	UnbindDevice(ctx context.Context, deviceID, userID string) error
 	// TouchLastSeen 更新设备活跃时间。
 	TouchLastSeen(ctx context.Context, deviceID string, at time.Time) error
+
+	CreateUser(ctx context.Context, u User) (User, error)
+	UserByEmail(ctx context.Context, email string) (User, error)
+	UserByID(ctx context.Context, id string) (User, error)
+	UpdateUserDisplayName(ctx context.Context, id, displayName string) (User, error)
+	// DevicesByOwner 返回当前车主名下的设备，按 claimed_at 倒序。
+	DevicesByOwner(ctx context.Context, userID string) ([]Device, error)
+}
+
+// DeviceSeeder 是产线/开发种子写入的可选能力，不放进 Store 领域接口。
+// 目前只给演示设备与测试使用。
+type DeviceSeeder interface {
+	SeedDevice(ctx context.Context, d Device, claimCodeHash string) error
 }

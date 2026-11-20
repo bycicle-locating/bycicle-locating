@@ -1,9 +1,13 @@
-import 'package:flutter/material.dart';
+import '../../../core/theme/floating_page.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/log.dart';
 import '../../../core/providers.dart';
+import '../../../core/theme/app_surface.dart';
 
 /// 绑定页。
 ///
@@ -23,10 +27,15 @@ class PairingPage extends ConsumerStatefulWidget {
 class _PairingPageState extends ConsumerState<PairingPage> {
   late final TextEditingController _deviceIdController;
   late final TextEditingController _claimController;
+  final FocusNode _claimFocus = FocusNode();
 
   bool _busy = false;
   String? _error;
   DeviceView? _bound;
+
+  bool get _canSubmit =>
+      _deviceIdController.text.trim().isNotEmpty &&
+      _claimController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -35,65 +44,53 @@ class _PairingPageState extends ConsumerState<PairingPage> {
         TextEditingController(text: widget.initialDeviceId ?? '');
     _claimController =
         TextEditingController(text: widget.initialClaimCode ?? '');
+    _deviceIdController.addListener(_onInputChanged);
+    _claimController.addListener(_onInputChanged);
+  }
+
+  void _onInputChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
+    _deviceIdController.removeListener(_onInputChanged);
+    _claimController.removeListener(_onInputChanged);
     _deviceIdController.dispose();
     _claimController.dispose();
+    _claimFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _scanNfc() async {
-    setState(() => _error = null);
-    try {
-      final tag = await ref.read(nfcReaderProvider).readBindTag();
-      if (!mounted) {
-        return;
-      }
-      if (tag == null) {
-        setState(() => _error = '未读到有效的绑定标签');
-        return;
-      }
-      setState(() {
-        _deviceIdController.text = tag.deviceId;
-        _claimController.text = tag.claimCode;
-      });
-    } on UnsupportedError catch (e) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _error = e.message);
-    }
-  }
-
   Future<void> _submit() async {
+    if (_busy || !_canSubmit) {
+      return;
+    }
     final deviceId = _deviceIdController.text.trim();
     // 声明码在标签里是大写 Base32，用户手输时大小写不敏感。
     final claimCode = _claimController.text.trim().toUpperCase();
-    if (deviceId.isEmpty || claimCode.isEmpty) {
-      setState(() => _error = '请填写设备编号与声明码');
-      return;
-    }
 
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final device = await ref.read(apiClientProvider).bindDevice(
-            deviceId: deviceId,
-            claimCode: claimCode,
-          );
+      final device =
+          await ref.read(deviceActionsProvider).bind(deviceId, claimCode);
       logInfo('绑定成功', device.id);
       if (!mounted) {
         return;
       }
+      FocusScope.of(context).unfocus();
+      HapticFeedback.mediumImpact();
       setState(() => _bound = device);
     } on ApiException catch (e) {
       if (!mounted) {
         return;
       }
+      HapticFeedback.heavyImpact();
       setState(() => _error = e.message);
     } finally {
       if (mounted) {
@@ -104,84 +101,71 @@ class _PairingPageState extends ConsumerState<PairingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('绑定设备')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('用手机触碰车上的标签', style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    '标签里存着一次性的绑定声明码。绑定成功后声明码立即作废，'
-                    '同一张标签无法再绑定第二台手机。',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _deviceIdController,
-            decoration: const InputDecoration(
-              labelText: '设备编号',
-              hintText: 'BKL-2026-000123',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _claimController,
-            decoration: const InputDecoration(
-              labelText: '声明码',
-              hintText: '16 位字符，来自标签',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
-          ],
-          if (_bound != null) ...[
-            const SizedBox(height: 12),
-            Card(
-              color: theme.colorScheme.primaryContainer,
-              child: ListTile(
-                leading: const Icon(Icons.check_circle),
-                title: const Text('绑定成功'),
-                subtitle: Text(
-                  '${_bound!.id} 已绑定。设备下次联网即收到确认指令；'
-                  '若长时间未联网，这里会一直显示"等待设备确认"。',
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _scanNfc,
-            icon: const Icon(Icons.nfc),
-            label: const Text('触碰 NFC 读取'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: _busy ? null : _submit,
-            child: _busy
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('确认绑定'),
-          ),
-        ],
-      ),
-    );
+    final bound = _bound;
+    return FloatingPage(
+        title: '添加你的车辆',
+        child: bound == null
+            ? _buildForm(context)
+            : _buildSuccess(context, bound));
   }
+
+  Widget _buildForm(BuildContext context) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('设备编号'),
+          const SizedBox(height: 8),
+          AppField(
+              controller: _deviceIdController,
+              enabled: !_busy,
+              placeholder: 'BKL-2026-000123',
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _claimFocus.requestFocus()),
+          const SizedBox(height: 20),
+          const Text('声明码'),
+          const SizedBox(height: 8),
+          AppField(
+              controller: _claimController,
+              focusNode: _claimFocus,
+              enabled: !_busy,
+              placeholder: '16 位字符',
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.characters,
+              onSubmitted: (_) {
+                if (_canSubmit && !_busy) _submit();
+              }),
+        ]),
+        const SizedBox(height: 16),
+        Text('请核对车身编号与标签上的声明码。',
+            style: TextStyle(
+                fontSize: 15,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context))),
+        if (_error != null)
+          Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Text(_error!,
+                  style: TextStyle(
+                      color: CupertinoColors.systemRed.resolveFrom(context)))),
+        const SizedBox(height: 24),
+        AppAction(
+            label: '确认绑定', busy: _busy, onPressed: _canSubmit ? _submit : null),
+      ]));
+
+  Widget _buildSuccess(BuildContext context, DeviceView device) =>
+      SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(children: [
+            AppSurface(
+                child: AppEmpty(
+                    icon: CupertinoIcons.check_mark_circled,
+                    title: '绑定成功',
+                    message: device.id)),
+            const SizedBox(height: 24),
+            AppAction(
+                label: '完成',
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/map')),
+          ]));
 }

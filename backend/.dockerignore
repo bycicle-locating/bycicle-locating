@@ -1,0 +1,12 @@
+.git
+.gitignore
+.mimosa
+.zcode
+.env
+.env.*
+!.env.example
+
+bin/
+dist/
+deploy/
+README.md

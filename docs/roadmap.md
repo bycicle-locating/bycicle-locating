@@ -1,21 +1,22 @@
 # 路线图
 
-当前处于 **M0（骨架）**。每个里程碑都有可验证的退出标准，不以「代码写完」为准。
+M0 的 iOS 打包和 ESP-IDF 构建待验证。M1 已交付公网账号与车辆 API，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
 
-## M0 — 仓库骨架（本次）
+## M0 — 仓库骨架
 
 - [x] 目录结构、协议与架构文档、ADR
 - [x] 三层空实现与接口定义
 - [x] 协作规范与 AI 工作约束（AGENTS.md）
 - [x] 环境自检脚本 `scripts/check-env.sh`
-- [x] `backend/` 构建通过：`go build` / `go vet` / `go test` / `gofmt`（Docker `golang:1.22`）
+- [x] `backend/` 构建通过：`go build` / `go vet` / `go test` / `gofmt`（Go 1.27）
 - [x] `backend/` 绑定接口冒烟：200 绑定成功 / 409 已绑定 / 403 声明码错误 / 401 未登录
-- [x] `app/` 通过 `flutter analyze`（0 issue）、`flutter test`、`dart format`（Flutter 3.44）
+- [x] `app/` 通过 `flutter analyze`、`flutter test` 和 `dart format`
 - [x] `firmware/` 纯 C 模块通过 gcc 13 编译与主机单测
-- [ ] `app/` 生成 `android/`、`ios/` 平台工程并可打包（需先定 applicationId）
+- [x] `app/` 生成 `android/` 平台工程并可打包（`flutter build apk --debug` 通过，applicationId = `top.byciclelocating.app`）
+- [ ] `app/` 生成 `ios/` 平台工程并可打包
 - [ ] `firmware/` 通过 `idf.py build`（待安装 ESP-IDF）
 
-**退出标准**：三层各跑通一次构建。后端与 app 静态检查已达成；固件仅纯 C 模块已达成，ESP-IDF 构建待工具链。
+**退出标准**：后端、App 和固件完成构建，覆盖 Android、iOS 与 ESP-IDF。
 
 ## M1 — 链路打通
 
@@ -28,10 +29,13 @@
 - [ ] 模组侧 MQTT 连通：`AT+QMTOPEN` → `AT+QMTCONN` → `AT+QMTPUB`
 - [ ] ST25DV16K 接入：I²C 识别（读 UID）、NDEF 读写与读回校验、天线调谐后实测读距
 - [ ] 锁屏触碰实测：Android 与 iOS（Type 5 的后台读取得真机确认）
-- [ ] 后端：MQTT 订阅 + `internal/protocol` 校验 + `Store` Postgres 实现 + 迁移脚本
+- [ ] 后端：MQTT 订阅 + `internal/protocol` 校验
+- [x] 后端：用户注册/登录 + JWT + Postgres Store + 迁移脚本
 - [ ] 固件：`modem_at` 真实实现（UART + URC），`modem_mqtt` 完成 QMTOPEN/CONN/PUBEX
 - [ ] 固件：`track/ringbuf` 落 LittleFS，`uploader` 批量与退避
-- [ ] App：`ApiClient` 接后端，地图页显示"最后已知位置"
+- [x] App：通过公网 API 注册、登录、恢复 JWT 会话、手动绑定、查看车辆列表与解绑，Android 模拟器通过验收
+- [ ] App：在 Android 实体手机上验证公网账号与车辆流程
+- [ ] App：地图页显示最后已知的真实位置
 - [ ] App：NFC 读取 → 绑定 → 状态刷新
 - [ ] Mosquitto TLS + 每设备账号 ACL 跑通
 
@@ -51,7 +55,7 @@
 - [ ] 后端：围栏 CRUD + 进出判定 + 告警去重（同设备 10 分钟内同类只报一次）
 - [ ] 后端：`alerts` + WebSocket 推送；`context` 快照便于复盘误报
 - [ ] 固件：震动中断 → `event{motion}` + 临时提高采样率
-- [ ] 后端：解绑接口（仅车主）+ 审计
+- [x] 后端：仅车主可解绑，Postgres 记录解绑历史
 - [ ] 声明码轮换（`cmd: write_claim`）：设备改写标签 NDEF，旧码失效，关闭"解绑 → 重绑"克隆窗口
 - [ ] App：告警页、已读、围栏编辑；「车在附近」仅作提示
 
@@ -63,7 +67,7 @@
 - [ ] 深度睡眠策略（PSM/eDRX + 睡眠前发 `online:false`）
 - [ ] OTA（双分区 + 回滚 + 版本灰度）
 - [ ] 产线工具：NVS 写入 + NFC 标签写入（ST25DV，不加只读锁）+ 自检
-- [ ] CI：app 与 firmware 的构建流水线（当前仅有 backend）
+- [ ] CI：App 打包与 ESP-IDF 固件构建。现有流水线覆盖后端构建与端到端测试、App 分析与测试、固件主机单测
 
 **退出标准**：满电待机 ≥ 30 天（每天 1 h 骑行）；OTA 失败可自动回滚。
 

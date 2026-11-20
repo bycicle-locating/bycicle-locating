@@ -16,7 +16,7 @@
 
 | 层 | 内容 |
 |---|---|
-| GitHub 服务端分支保护 | 必须走 PR、三个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
+| GitHub 服务端分支保护 | 必须走 PR、四个必需检查、严格模式（落后需先 rebase）、线性历史、禁止强推与删除、必须解决对话；`enforce_admins=true`，**管理员也不能直推**。逐条参数见 [docs/branch-protection.md](docs/branch-protection.md) |
 | 人工 | PR 模板里的自检清单与影响面确认 |
 
 完整流程：
@@ -33,7 +33,7 @@ gh pr merge --squash --delete-branch
 约定：
 
 - **合并方式统一用 squash**，保持 `main` 线性历史；PR 标题即最终提交信息，所以标题必须符合 Conventional Commits。仓库设置已强制 squash-only 并自动删除头部分支。
-- 三个检查 `build` / `analyze-and-test` / `host-tests` 必须全绿才能合并，这条由服务端强制，不可绕过。
+- 四个检查 `build` / `docker-e2e` / `analyze-and-test` / `host-tests` 必须全绿才能合并，这条由服务端强制，不可绕过。
 
 > **应急**：确实需要直推（例如被错误提交卡住）时，管理员在 Settings → Branches 临时停用规则，
 > 处理完**立刻**按 [docs/branch-protection.md](docs/branch-protection.md) §1 的表格重建。不要长期关闭。
