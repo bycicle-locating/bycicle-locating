@@ -14,6 +14,7 @@ import (
 	"github.com/bycicle-locating/backend/internal/auth"
 	"github.com/bycicle-locating/backend/internal/device"
 	"github.com/bycicle-locating/backend/internal/store"
+	"github.com/bycicle-locating/backend/internal/telemetry"
 	"github.com/bycicle-locating/backend/internal/user"
 )
 
@@ -87,19 +88,20 @@ func (a ChainAuthenticator) User(ctx context.Context, r *http.Request) (string, 
 
 // Server 持有 HTTP 依赖，本身无状态。
 type Server struct {
-	devices *device.Service
-	users   *user.Service
-	tokens  *auth.Tokens
-	auth    Authenticator
-	log     *slog.Logger
+	devices   *device.Service
+	users     *user.Service
+	telemetry *telemetry.Service
+	tokens    *auth.Tokens
+	auth      Authenticator
+	log       *slog.Logger
 }
 
 // New 构造 HTTP 服务。
-func New(devices *device.Service, users *user.Service, tokens *auth.Tokens, authn Authenticator, log *slog.Logger) *Server {
+func New(devices *device.Service, users *user.Service, telemetry *telemetry.Service, tokens *auth.Tokens, authn Authenticator, log *slog.Logger) *Server {
 	if log == nil {
 		log = slog.Default()
 	}
-	return &Server{devices: devices, users: users, tokens: tokens, auth: authn, log: log}
+	return &Server{devices: devices, users: users, telemetry: telemetry, tokens: tokens, auth: authn, log: log}
 }
 
 // Routes 返回挂好中间件的路由表。
@@ -114,6 +116,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/devices:bind", s.handleBind)
 	mux.HandleFunc("DELETE /v1/devices/{deviceID}/binding", s.handleUnbind)
 	mux.HandleFunc("GET /v1/devices/{deviceID}", s.handleGetDevice)
+	mux.HandleFunc("GET /v1/devices/{deviceID}/location", s.handleLocation)
+	mux.HandleFunc("GET /v1/devices/{deviceID}/track", s.handleTrack)
 	return s.withRecovery(s.withLogging(mux))
 }
 

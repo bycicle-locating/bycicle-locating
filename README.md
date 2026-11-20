@@ -4,7 +4,7 @@
 
 Android App 已能通过公开 HTTPS API 注册、登录、手动绑定、查看车辆列表和解绑。后端使用 JWT 鉴权与 Postgres 存储，账号与车辆流程已通过 Android 模拟器公网验收。入口、鉴权与验证方法见 [部署与联调环境](docs/deployment.md)。
 
-真实定位与轨迹上报、NFC/BLE 接入、Android 真机验收和 iOS 打包仍待完成。固件构建与提示音验证见 [固件 README](firmware/README.md)，其他验收项见 [路线图](docs/roadmap.md)。
+地图支持显示当前车辆的最新位置与最近轨迹。真实车载定位上报、NFC/BLE 接入、Android 真机验收和 iOS 打包仍待完成。固件构建与提示音验证见 [固件 README](firmware/README.md)，其他验收项见 [路线图](docs/roadmap.md)。
 
 ## 组成
 
@@ -12,7 +12,7 @@ Android App 已能通过公开 HTTPS API 注册、登录、手动绑定、查看
 |---|---|---|---|
 | `app/` | 手机端 | Flutter + Riverpod + go_router | 绑定、地图、骑行记录、车辆设置 |
 | `firmware/` | 车载硬件固件 | ESP-IDF (C) + NimBLE | UART 驱动 EC800M 模组，采样并上报 |
-| `backend/` | 云端服务 | Go + pgx + Postgres | 账号与车辆 HTTP API，MQTT 与 WebSocket 待接入 |
+| `backend/` | 云端服务 | Go + pgx + Postgres | 账号与车辆 HTTP API，支持 MQTT TLS 上报入库 |
 | `docs/` | 设计与契约 | Markdown + Mermaid | **改协议先改这里** |
 
 硬件由 ESP32-S3 + Quectel **EC800M**（Cat.1，GNSS 为选配版本）+ **ST25DV16K** NFC 标签组成，

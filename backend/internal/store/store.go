@@ -13,10 +13,13 @@ import (
 
 // 领域错误。上层用 errors.Is 判断，避免字符串匹配。
 var (
-	ErrNotFound     = errors.New("store: 记录不存在")
-	ErrAlreadyBound = errors.New("store: 设备已被绑定")
-	ErrNotBound     = errors.New("store: 设备未被绑定")
-	ErrEmailTaken   = errors.New("store: 邮箱已被占用")
+	ErrNotFound      = errors.New("store: 记录不存在")
+	ErrAlreadyBound  = errors.New("store: 设备已被绑定")
+	ErrNotBound      = errors.New("store: 设备未被绑定")
+	ErrEmailTaken    = errors.New("store: 邮箱已被占用")
+	ErrInvalidUplink = errors.New("store: 无法持久化的上报数据")
+	ErrNotOwner      = errors.New("store: 无权读取该设备")
+	ErrDeviceExists  = errors.New("store: 设备已存在")
 )
 
 // 设备状态，与 docs/pairing.md §4 一致。
@@ -99,6 +102,9 @@ type ClaimState struct {
 //   - 所有方法尊重 ctx 取消。
 type Store interface {
 	InsertTelemetry(ctx context.Context, points []TelemetryPoint) (inserted int, err error)
+	// 最新位置与轨迹只包含当前车主本次绑定期间的点。
+	LatestTelemetry(ctx context.Context, deviceID, ownerID string) (TelemetryPoint, error)
+	TelemetrySince(ctx context.Context, deviceID, ownerID string, since time.Time, limit int) ([]TelemetryPoint, error)
 	InsertEvent(ctx context.Context, e Event) error
 	UpsertStatus(ctx context.Context, s Status) error
 	Device(ctx context.Context, deviceID string) (Device, error)
@@ -132,4 +138,9 @@ type Store interface {
 // 目前只给演示设备与测试使用。
 type DeviceSeeder interface {
 	SeedDevice(ctx context.Context, d Device, claimCodeHash string) error
+}
+
+// DeviceProvisioner 原子注册新设备。重复编号返回 ErrDeviceExists。
+type DeviceProvisioner interface {
+	CreateDevice(ctx context.Context, d Device, claimCodeHash string) error
 }

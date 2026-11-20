@@ -37,6 +37,7 @@ export JWT_TTL=1h
 export DEV_USER_ID=
 export DEV_SEED_CLAIM=$claim
 export APP_ENV=dev
+export MQTT_URL=
 export BKL_IMAGE_TAG=users-e2e-pg
 export GOPROXY=${GOPROXY:-https://proxy.golang.org,direct}
 

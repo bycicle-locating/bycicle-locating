@@ -72,3 +72,6 @@ jobs:
 
       - name: Postgres 全链路 e2e（迁移 → JWT → 用户/设备 → Store）
         run: bash deploy/e2e-postgres.sh
+
+      - name: MQTT TLS → Postgres 上报验收
+        run: bash deploy/e2e-mqtt.sh

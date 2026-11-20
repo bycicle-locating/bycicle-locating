@@ -76,6 +76,19 @@ func (m *Memory) SeedDevice(_ context.Context, d Device, claimCodeHash string) e
 	return nil
 }
 
+func (m *Memory) CreateDevice(ctx context.Context, d Device, claimCodeHash string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, exists := m.devices[d.ID]; exists {
+		return ErrDeviceExists
+	}
+	m.putDeviceLocked(d, claimCodeHash)
+	return nil
+}
+
 func (m *Memory) putDeviceLocked(d Device, claimCodeHash string) {
 	if d.State == "" {
 		d.State = StateClaimable

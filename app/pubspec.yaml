@@ -4,10 +4,8 @@ publish_to: none
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  sdk: ">=3.6.0 <4.0.0"
 
-# 骨架阶段只引入必需依赖。地图、BLE、NFC 的插件在实现时再加，
-# 现在 core/ 里是接口 + 桩实现，所以不解锁这些 SDK 也能 analyze。
 dependencies:
   flutter:
     sdk: flutter
@@ -18,6 +16,9 @@ dependencies:
   dio: ^5.7.0
   cupertino_icons: ^2.0.0
   flutter_secure_storage: ^11.2.0
+  flutter_map: ^8.3.2
+  latlong2: ^0.9.1
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:

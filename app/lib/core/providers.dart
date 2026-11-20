@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api/api_client.dart';
@@ -43,6 +44,70 @@ final selectedDeviceProvider = Provider<DeviceView?>((ref) {
   }
   return devices.isEmpty ? null : devices.first;
 });
+
+/// 相同编号在不同会话下使用不同的查询实例。
+class DeviceTelemetryTarget {
+  const DeviceTelemetryTarget._(this.deviceId, this._client);
+
+  final String deviceId;
+  final ApiClient _client;
+}
+
+final selectedTelemetryTargetProvider = Provider<DeviceTelemetryTarget?>((ref) {
+  final device = ref.watch(selectedDeviceProvider);
+  if (device == null) return null;
+  return DeviceTelemetryTarget._(device.id, ref.watch(apiClientProvider));
+});
+
+final deviceLocationProvider = FutureProvider.autoDispose
+    .family<DeviceTrackPoint?, DeviceTelemetryTarget>((ref, target) {
+  final cancel = CancelToken();
+  ref.onDispose(cancel.cancel);
+  return target._client.fetchLocation(target.deviceId, cancelToken: cancel);
+});
+
+final deviceTrackProvider = FutureProvider.autoDispose
+    .family<List<DeviceTrackPoint>, DeviceTelemetryTarget>((ref, target) {
+  final cancel = CancelToken();
+  ref.onDispose(cancel.cancel);
+  return target._client.fetchTrack(target.deviceId, cancelToken: cancel);
+});
+
+class DeviceTelemetry {
+  const DeviceTelemetry({required this.latest, required this.track});
+
+  final DeviceTrackPoint? latest;
+  final List<DeviceTrackPoint> track;
+
+  DeviceTrackPoint? get current {
+    final point = latest;
+    final lastTrackPoint = track.isEmpty ? null : track.last;
+    if (point == null ||
+        (lastTrackPoint != null && lastTrackPoint.seq > point.seq)) {
+      return lastTrackPoint;
+    }
+    return point;
+  }
+}
+
+final deviceTelemetryProvider = Provider.autoDispose
+    .family<AsyncValue<DeviceTelemetry>, DeviceTelemetryTarget>((ref, target) {
+  final location = ref.watch(deviceLocationProvider(target));
+  final track = ref.watch(deviceTrackProvider(target));
+  final error = location.error ?? track.error;
+  if (error != null) {
+    return AsyncError(
+        error, location.stackTrace ?? track.stackTrace ?? StackTrace.empty);
+  }
+  if (!location.hasValue || !track.hasValue) return const AsyncLoading();
+  return AsyncData(
+      DeviceTelemetry(latest: location.valueOrNull, track: track.requireValue));
+});
+
+void refreshDeviceTelemetry(WidgetRef ref, DeviceTelemetryTarget target) {
+  ref.invalidate(deviceLocationProvider(target));
+  ref.invalidate(deviceTrackProvider(target));
+}
 
 final deviceActionsProvider = Provider((ref) => DeviceActions(ref));
 

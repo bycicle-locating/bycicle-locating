@@ -5,12 +5,13 @@
 | 用途 | 地址 | 鉴权 |
 |---|---|---|
 | App 公网 API | `https://api.bycicle-locating.top` | 健康检查、注册和登录可匿名访问；用户与车辆接口使用 Bearer JWT |
+| 车载 MQTT | `mqtts://mqtt.bycicle-locating.top:8883` | 私有 CA、每设备独立凭据和主题权限 |
 | 团队联调 | `https://bycicle-locating.top` | Cloudflare Access。浏览器使用团队邮箱，脚本使用服务令牌。业务接口仍校验 JWT |
 | 服务器本机 | `http://127.0.0.1:32525` | 直连 nginx，业务接口仍校验 JWT |
 
 App 默认使用公网 API。访问流程和错误响应见 [HTTP API](http-api.md)。
 
-车载设备通过 EC800M 的蜂窝网络接入，运营商 CGNAT 使设备无法加入开发机所在的局域网。设备链路使用公网 MQTT broker 中转，当前仍待联调。服务器地址与 SSH 访问方式见私有运维记录。
+车载设备通过 EC800M 蜂窝网络主动连公网 Mosquitto。公网 TLS 入口已验证可达，服务器侧已验证专用设备发布与后端账号订阅。EC800M 经真实 4G 上报待验收。服务器地址与 SSH 访问方式见私有运维记录。
 
 ## 2. 部署拓扑
 
@@ -39,6 +40,11 @@ App ──HTTPS──> api.bycicle-locating.top ──────────�
 | `TUNNEL_TOKEN` | Cloudflare Tunnel 连接器凭据 |
 | `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` | 团队入口的联调脚本凭据 |
 | `BKL_BIND_ADDR=127.0.0.1`、`BKL_HTTP_PORT=32525` | nginx 在服务器上的监听地址与端口 |
+| `MQTT_URL`、`MQTT_USER`、`MQTT_PASSWORD` | 新版后端的生产必填项。使用上表的 TLS Broker 地址和后端专用账号 |
+| `MQTT_CA_FILE`、`MQTT_CLIENT_ID` | 私有 CA 容器路径为 `/run/bkl/mqtt/mqtt-ca.crt`，默认客户端 ID 为 `bkl-backend` |
+
+升级后端前先填 MQTT 配置并准备 [公共 CA 证书](../backend/deploy/certs/mqtt-ca.crt)。默认源目录为
+`backend/deploy/certs`，设备和后端使用同一份信任根。生产 Broker 独立部署，`deps` 中的匿名 Broker 用于本地开发。
 
 ```bash
 cd /opt/bicycle-locating/backend
@@ -58,6 +64,9 @@ docker compose --profile deps exec -T postgres pg_dump -U bkl bike_locating > ba
 
 启动 Postgres 模式时，`migrate` 先执行 `internal/store/migrations/` 中的迁移，后端启动时再校验表结构。生产数据保存在 `pg-data` 卷，维护和重建容器时须保留该卷。`POSTGRES_PASSWORD` 在首次初始化数据卷时生效。
 
+新设备须先[登记设备编号和声明码](../backend/README.md#设备登记)，再用该编号配置 Broker 凭据和 ACL。
+绑定成功后，当前车主可以通过 [位置与轨迹接口](http-api.md#31-最新位置与轨迹) 查看本次绑定期间的遥测。
+
 在 Cloudflare Zero Trust 中维护团队邮箱和 Access 服务令牌。轮换服务令牌时，将新凭据写入服务器 `.env`，再更新 Access 策略的令牌引用。轮换 Tunnel 凭据后，更新 `TUNNEL_TOKEN` 并重建 `cloudflared`。
 
 ## 4. 联通验证
@@ -75,4 +84,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://bycicle-locating.top/healthz
 
 2026-11-20，使用同一版 Flutter `ApiClient` 连本地隔离的 Postgres 测试栈，通过了注册、登录、Bearer 鉴权、车辆列表、绑定、详情和解绑。可用 `backend/deploy/e2e-postgres.sh` 复现后端的 Postgres 栈冒烟。
 
-2026-11-13，Android 模拟器已通过公网完成注册、登录、会话恢复、绑定和解绑。Android 真机的公网闭环待验收。 [App 验收记录](https://github.com/bycicle-locating/bycicle-locating/blob/4127dad6a1498452a554c0862a5e8edd000da010/docs/app-auth-acceptance.md)
+2026-11-13，Android 模拟器已通过公网完成注册、登录、会话恢复、绑定和解绑。真机验收见 [Issue #15](https://github.com/bycicle-locating/bycicle-locating/issues/15)。 [App 验收记录](app-auth-acceptance.md)
+
+2026-11-20，服务器本机通过 MQTT TLS 1.2 与 1.3 严格校验，开发机公网实测 TLS 1.3 通过。
+开发机公网 TLS 1.2 握手被重置，仍需用 EC800M 在蜂窝网上实测。后端 MQTT 入库可用
+`backend/deploy/e2e-mqtt.sh` 在隔离环境复现。

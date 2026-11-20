@@ -1,6 +1,6 @@
 # 路线图
 
-M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
+M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，后端接入了 MQTT 遥测入库，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
 
 ## M0 — 仓库骨架
 
@@ -29,15 +29,17 @@ M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，设备到 A
 - [ ] 模组侧 MQTT 连通：`AT+QMTOPEN` → `AT+QMTCONN` → `AT+QMTPUB`
 - [ ] ST25DV16K 接入：I²C 识别（读 UID）、NDEF 读写与读回校验、天线调谐后实测读距
 - [ ] 锁屏触碰实测：Android 与 iOS（Type 5 的后台读取得真机确认）
-- [ ] 后端：MQTT 订阅 + `internal/protocol` 校验
+- [x] 后端：MQTT TLS 订阅、协议校验、Postgres 遥测去重入库
+- [x] 后端：设备登记 CLI、车主位置与轨迹查询、按绑定时间过滤轨迹
 - [x] 后端：用户注册/登录 + JWT + Postgres Store + 迁移脚本
 - [ ] 固件：`modem_at` 真实实现（UART + URC），`modem_mqtt` 完成 QMTOPEN/CONN/PUBEX
 - [ ] 固件：`track/ringbuf` 落 LittleFS，`uploader` 批量与退避
 - [x] App：通过公网 API 注册、登录、恢复 JWT 会话、手动绑定、查看车辆列表与解绑，Android 模拟器通过验收
-- [ ] App：在 Android 实体手机上验证公网账号与车辆流程
-- [ ] App：地图页显示最后已知的真实位置
+- [ ] App：在 Android 实体手机上验证公网账号与车辆流程（[Issue #15](https://github.com/bycicle-locating/bycicle-locating/issues/15)）
+- [x] App：Android 模拟器通过本地后端读取 MQTT TLS 上报的测试数据，地图显示当前车辆的最新位置与最近轨迹
+- [ ] 真车闭环：EC800M 经 4G 上报真实 GNSS，App 地图显示该点
 - [ ] App：NFC 读取 → 绑定 → 状态刷新
-- [ ] Mosquitto TLS + 每设备账号 ACL 跑通
+- [x] 公网 Mosquitto 已提供 TLS 入口，验证专用设备账号发布、后端账号订阅和跨设备写入拒绝
 
 **退出标准**：实机开机后 5 分钟内，App 上出现至少一个真实轨迹点；主动拔掉天线后数据不丢，复网后补传成功。
 

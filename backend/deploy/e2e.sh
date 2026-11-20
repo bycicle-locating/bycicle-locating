@@ -44,6 +44,7 @@ export JWT_SECRET=$jwt_secret
 export DEV_USER_ID=
 export DEV_SEED_CLAIM=$claim
 export APP_ENV=dev
+export MQTT_URL=
 # 与部署镜像分开，避免 e2e 重建把部署实例正在使用的 tag 挪走。
 export BKL_IMAGE_TAG=e2e
 

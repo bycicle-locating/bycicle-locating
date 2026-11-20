@@ -1,6 +1,6 @@
 // Package mqtt 定义消息总线的 seam。
 //
-// 生产实现用 eclipse/paho.mqtt.golang（M1 接入），但接口刻意不暴露 paho 的任何类型，
+// 生产实现用 eclipse/paho.mqtt.golang，接口刻意不暴露 paho 的任何类型，
 // 这样 ingest/api 的测试不需要 broker，将来换 broker 客户端也不用改调用方。
 package mqtt
 
@@ -17,7 +17,7 @@ type Message struct {
 	Retain  bool
 }
 
-// Handler 处理一条消息。返回错误仅用于日志，不影响订阅本身。
+// Handler 处理一条消息。返回错误表示需要重试；永久无效的报文应丢弃并返回 nil。
 type Handler func(ctx context.Context, m Message) error
 
 // Bus 是发布/订阅接口。实现必须：
@@ -30,9 +30,7 @@ type Bus interface {
 	Close() error
 }
 
-// LogBus 只把动作写进日志，用于本机无 broker 时跑通进程。
-//
-// 它**不会**真的收发消息，因此不能用于联调；M1 换成 paho 实现后删掉它的使用点即可。
+// LogBus 只把动作写进日志，用于未配置 Broker 的本地 HTTP 开发。
 type LogBus struct {
 	log *slog.Logger
 }
@@ -53,8 +51,7 @@ func (b *LogBus) Publish(_ context.Context, topic string, payload []byte, qos by
 
 // Subscribe 记录一次订阅；这里不触发任何回调。
 func (b *LogBus) Subscribe(_ context.Context, filter string, _ Handler) error {
-	b.log.Warn("mqtt.subscribe 未实现，消息不会到达",
-		"filter", filter, "hint", "M1 需接入 paho 客户端")
+	b.log.Debug("MQTT 已停用，跳过订阅", "filter", filter)
 	return nil
 }
 

@@ -3,10 +3,13 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (p *Postgres) InsertTelemetry(ctx context.Context, points []TelemetryPoint) (int, error) {
@@ -45,9 +48,12 @@ func (p *Postgres) InsertTelemetry(ctx context.Context, points []TelemetryPoint)
 	for range points {
 		tag, err := results.Exec()
 		if err != nil {
-			return inserted, fmt.Errorf("store: 写入轨迹: %w", err)
+			return 0, uplinkWriteError("写入轨迹", err)
 		}
 		inserted += int(tag.RowsAffected())
+	}
+	if err := results.Close(); err != nil {
+		return 0, uplinkWriteError("提交轨迹", err)
 	}
 	return inserted, nil
 }
@@ -59,7 +65,7 @@ func (p *Postgres) InsertEvent(ctx context.Context, e Event) error {
 	}
 	raw, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("store: 序列化事件数据: %w", err)
+		return fmt.Errorf("store: 序列化事件数据: %w", ErrInvalidUplink)
 	}
 	received := e.ReceivedAt
 	if received.IsZero() {
@@ -81,7 +87,7 @@ func (p *Postgres) InsertEvent(ctx context.Context, e Event) error {
 			"data":       raw,
 		})
 	if err != nil {
-		return fmt.Errorf("store: 写入事件: %w", err)
+		return uplinkWriteError("写入事件", err)
 	}
 	return nil
 }
@@ -116,7 +122,21 @@ func (p *Postgres) UpsertStatus(ctx context.Context, s Status) error {
 			"at":       at,
 		}).Scan(&one)
 	if err != nil {
-		return fmt.Errorf("store: 写入设备状态: %w", err)
+		return uplinkWriteError("写入设备状态", err)
 	}
 	return nil
+}
+
+func uplinkWriteError(operation string, err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch {
+		case pgErr.Code == "23503":
+			return fmt.Errorf("store: %s: %w", operation, ErrNotFound)
+		case strings.HasPrefix(pgErr.Code, "22"), strings.HasPrefix(pgErr.Code, "23"):
+			// 数据或完整性错误不会因重试而消失，也不要在日志里写入报文内容。
+			return fmt.Errorf("store: %s: %w (SQLSTATE %s)", operation, ErrInvalidUplink, pgErr.Code)
+		}
+	}
+	return fmt.Errorf("store: %s: %w", operation, err)
 }
