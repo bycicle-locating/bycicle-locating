@@ -2,8 +2,8 @@
 
 面向 App 的 JSON API。设备↔云协议见 [protocol.md](protocol.md)，设备绑定安全语义见 [pairing.md](pairing.md)。
 
-- Base URL：`https://bycicle-locating.top`
-- 编码：UTF-8 JSON；请求必须带 `Content-Type: application/json`
+- App 公网基址为 `https://api.bycicle-locating.top`。团队入口的访问方式见 [部署与联调环境](deployment.md)。
+- JSON 使用 UTF-8。发送 JSON 请求体时带 `Content-Type: application/json`。
 - 时间：UTC RFC3339（如 `2026-11-06T12:00:00Z`）
 - 单位：位置 m、速度 m/s、航向度、海拔 m；km/h 只在 UI 出现
 - 鉴权：除 `/healthz`、注册、登录外，全部需要 `Authorization: Bearer <JWT>`
@@ -145,7 +145,7 @@
 ## 5. 当前限制
 
 - 没有 refresh token、logout、改密、邮箱验证、找回密码。
-- 注册开放；当前没有邀请码或邮箱验证，生产开放前需要补。
+- 公网 API 支持开放注册，邀请码和邮箱验证待接入。
 - 登录/注册只做边缘限流（nginx 每真实客户端 IP 1 r/s、burst 3，超出返回 429）；
   业务级风控属于后续。
 - `APP_ENV=dev` 且未配置 `DATABASE_URL` 时，后端仍接受 `X-Dev-User` 开发身份；

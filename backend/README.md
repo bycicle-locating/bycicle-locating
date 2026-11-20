@@ -3,7 +3,7 @@
 设备接入与 App 数据服务。技术栈 Go 1.27；Postgres 用 `pgx`，密码哈希用
 `golang.org/x/crypto/argon2`，JWT 用标准库 HS256。首次构建需要下载模块。
 
-> ✅ 已验证（2026-11-06）：
+> CI 验证覆盖后端构建与部署：
 > - `go build` / `go vet` / `go test` / `gofmt -l` 通过；
 > - 内存栈 Docker Compose e2e、Postgres 栈（迁移 + JWT + 用户/设备）e2e 通过；
 > - 未装 Go 时可这样复现静态检查：
@@ -20,7 +20,7 @@
 | `internal/protocol` | ✅ 已完成（信封解析与校验、主题解析、指令编码） |
 | `internal/store` | ✅ Memory + Postgres 实现 + `internal/store/migrations` |
 | `internal/ingest` | ✅ 骨架完成（去重、事件、状态），指令确认待 M1 |
-| `internal/device` | ✅ 绑定/解绑 + 声明码 HMAC 校验，限流待 M1 |
+| `internal/device` | ✅ 绑定、解绑和声明码 HMAC 校验。nginx 已按 IP 限流，账号级限流待实现 |
 | `internal/auth` | ✅ HS256 JWT 签发/校验 |
 | `internal/user` | ✅ 注册/登录/资料/我的设备；argon2id 密码哈希 |
 | `internal/api` | ✅ `/healthz`、用户、JWT、绑定/解绑/查设备 |
@@ -28,19 +28,13 @@
 
 ## 部署（Docker Compose）
 
-拓扑：公网 `https://bycicle-locating.top` → **Cloudflare Tunnel** → **nginx**（唯一入口，
-非 root、只读根文件系统）→ **backend:8080**（只在内网）。backend 与 nginx 都不发布公网端口；
-直连端口默认只绑 `127.0.0.1`。
+生产使用 Postgres 与 JWT。公开 App API 和受 Access 保护的团队入口均通过 Cloudflare Tunnel 转发到 nginx，backend 在 Compose 内网提供服务。nginx 的宿主机端口默认绑定回环地址。
 
-当前联调实例（域名、Tunnel、Access、测试方式）见 [`docs/deployment.md`](../docs/deployment.md)。
-HTTP API（注册/登录/用户/设备）契约见 [`docs/http-api.md`](../docs/http-api.md)。
-公网实例已启用 Cloudflare Access（`bicycle-locating-api`）；未带登录态或服务令牌的请求会
-302 到团队登录页。`smoke.sh` 检测到 `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`
-时会自动加 Access 头。
+入口、部署与只读联通检查见 [部署与联调环境](../docs/deployment.md)。注册、登录、用户与车辆接口见 [HTTP API](../docs/http-api.md)。
 
 ```bash
 cp .env.example .env      # 填 CLAIM_PEPPER、JWT_SECRET；接 Postgres 再填 DATABASE_URL
-docker compose up -d --build --wait        # dev 内存模式，重启丢数据
+docker compose up -d --build --wait        # APP_ENV=dev 且 DATABASE_URL 为空时使用内存
 docker compose ps
 curl -s "localhost:${BKL_HTTP_PORT:-32525}/healthz"
 
@@ -70,20 +64,13 @@ docker compose up -d --build --force-recreate --wait
 # 从零拉起隔离栈（独立 project、端口 18080），跑完自动销毁
 bash deploy/e2e.sh
 
-# 对运行中的实例冒烟（BASE_URL 指向 nginx；DEV_USER_ID 显式传入，公网实例不回退）
+# 对运行中的本地内存模式跑设备冒烟，启动前在 .env 配置 DEV_SEED_CLAIM
 set -a; . ./.env; set +a
 BASE_URL="http://127.0.0.1:${BKL_HTTP_PORT:-32525}" \
   DEV_USER_ID=11111111-1111-1111-1111-111111111111 \
   CLAIM_CODE="$DEV_SEED_CLAIM" bash deploy/smoke.sh
 
-# 公网实例冒烟：在开发机（客户端）上执行；服务令牌从服务器 .env / Zero Trust 面板取
-BASE_URL="https://bycicle-locating.top" \
-  DEV_USER_ID=11111111-1111-1111-1111-111111111111 \
-  CLAIM_CODE="$DEV_SEED_CLAIM" \
-  CF_ACCESS_CLIENT_ID=... CF_ACCESS_CLIENT_SECRET=... \
-  bash backend/deploy/smoke.sh
-
-# 用户 API：注册/登录/资料/我的设备；同样支持 CF_ACCESS_* 头
+# 对运行中的本地测试栈执行 JWT 用户 API 冒烟
 BASE_URL="http://127.0.0.1:${BKL_HTTP_PORT:-32525}" \
   CLAIM_CODE="$DEV_SEED_CLAIM" \
   bash deploy/user-smoke.sh
@@ -92,8 +79,7 @@ BASE_URL="http://127.0.0.1:${BKL_HTTP_PORT:-32525}" \
 bash deploy/e2e-postgres.sh
 ```
 
-不要从服务器本机跑域名 smoke：服务器出站到 Cloudflare 的回程偶发丢响应，会误报超时；
-服务器本机请用 `http://127.0.0.1:32525` 直连 nginx。
+`deploy/user-smoke.sh` 会注册测试账号。公网的只读验证命令见 [部署与联调环境](../docs/deployment.md#4-联通验证)。
 
 e2e 覆盖 healthz、绑定 200、重复绑定 409、错误声明码 403、非车主读写 403、解绑 204、
 解绑后不可见、用户注册/登录/资料/我的设备、认证限流 429 JSON，以及 backend 重建后 nginx 自动恢复。
@@ -119,9 +105,9 @@ Cloudflare，可绕开入站拦截，并自动提供 443 证书。
 1. Cloudflare Zero Trust → Networks → Tunnels → 创建隧道，复制 token。
 2. 在 `.env` 设置 `TUNNEL_TOKEN`。
 3. 启动：`docker compose --profile tunnel up -d cloudflared`
-4. 隧道 Public Hostname 配为 `bycicle-locating.top` → `http://nginx:8080`。
+4. 按 [部署拓扑](../docs/deployment.md#2-部署拓扑) 配置两个 Public Hostname 及各自的 Access 策略。
 
-该主机名若已有 A/AAAA 记录，需先删除（或让隧道的 CNAME 替换它），否则 Cloudflare
+主机名若已有 A/AAAA 记录，需先删除（或让隧道的 CNAME 替换它），否则 Cloudflare
 无法自动创建 DNS 记录。默认部署不启动该服务；`TUNNEL_TOKEN` 为空也不影响 `docker compose up`。
 
 ## 本地构建与测试

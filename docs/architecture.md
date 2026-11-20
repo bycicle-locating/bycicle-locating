@@ -18,6 +18,8 @@
 
 ## 2. 分层
 
+下图描述目标架构。已验收的链路见 [路线图](roadmap.md)。
+
 ```mermaid
 flowchart TB
   subgraph device[车载设备]
@@ -84,7 +86,7 @@ flowchart TB
 
 | 模块 | 接口 | 实现深度 |
 |---|---|---|
-| `core/api` | `ApiClient`（`bindDevice`、`listRides`、`watchPosition`…） | 重试、鉴权刷新、错误归一化 |
+| `core/api` | `ApiClient`（`authenticate`、`fetchDevices`、`bindDevice`、`unbindDevice`） | HTTP 请求、Bearer JWT、错误归一化 |
 | `core/ble` | `BleClient.watchStatus(deviceId)` | 扫描、MTU 协商、分片、重连 |
 | `core/nfc` | `NfcReader.readBindTag()` → `BindTag?` | 两平台差异、NDEF 解析、URL 校验 |
 | `features/*/data` | Repository | 缓存、分页、DTO→领域模型、单位换算 |
@@ -92,6 +94,8 @@ flowchart TB
 Widget 只见 Provider 与领域模型，不见 DTO、不见 HTTP。
 
 ## 4. 关键流程
+
+以下为设备上报和防盗的目标流程。
 
 ### 4.1 一次轨迹上报
 

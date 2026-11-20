@@ -46,6 +46,8 @@ NDEF 布局由固件自己拼（芯片只是 EEPROM）：能力容器（CC）→
 
 ## 3. 绑定流程
 
+当前 App 支持手动填写设备编号和声明码，绑定成功后依据 HTTP 响应刷新车辆列表。下图描述 NFC 读取、MQTT 下发与设备确认都接入后的流程。
+
 ```mermaid
 sequenceDiagram
   participant T as ST25DV16K
@@ -56,23 +58,25 @@ sequenceDiagram
   A->>A: 展示确认页（车型/标签/所属账号）
   A->>B: POST /v1/devices:bind {deviceId, claimCode} + JWT
   B->>B: 校验 claimCode 哈希；成功则写入车主（此码在绑定期间失效）
-  B-->>A: 200 {device}
+  B-->>A: 200 设备对象，App 刷新车辆列表
   B->>D: MQTT cmd=bind {userId, label}
   D->>D: NVS 写入绑定状态，转 CLAIMED，关闭 BLE 广播
   D-->>B: cmd/ack
-  B-->>A: WebSocket 推送绑定完成
+  B-->>A: WebSocket 推送设备确认
 ```
 
-后端接口：
+后端接口完整响应见 [HTTP API](http-api.md)。
 
 ```
 POST /v1/devices:bind   { "deviceId": "...", "claimCode": "..." }
-  200 { device }                      绑定成功
+  200 <设备对象>                       绑定成功
   403 invalid_claim                   声明码错误（不区分"设备不存在"，防枚举）
   409 already_bound                   已被绑定；只回 error/message，不回车主任何信息
-  429 rate_limited                    同账号 10 次/小时、同 IP 30 次/小时（M1）
+  429 rate_limited                    nginx 按客户端 IP 限流
 DELETE /v1/devices/{deviceId}/binding 仅车主账号可调用
 ```
+
+计划中的绑定配额为同账号 10 次/小时、同 IP 30 次/小时。
 
 要点：
 
@@ -89,7 +93,7 @@ DELETE /v1/devices/{deviceId}/binding 仅车主账号可调用
   轮换落地后即可把声明码收紧为严格一次性——届时应新开 ADR 修订人工约定，而不是改本文件。
 - 哈希在绑定后**保留不删**，这样持有的真实标签的人尝试绑定时能拿到"已被绑定"而不是模糊的"标签无效"。
   是否允许绑定看 `claimed_by` 是否为空；`claimed_at` 只记录"该码被用过"，不清空也不作为判据。
-- 设备离线时绑定仍应成功——后端先落库，`bind` 指令进入待投递队列，设备上线后自动收到。
+- 设备离线时，服务端绑定仍可成功。待 MQTT 接入后，`bind` 指令进入待投递队列，设备上线后收到。
 - App 在绑定页必须显示 `deviceId`，让用户能核对与车上丝印是否一致。
 
 ## 4. 设备状态机
