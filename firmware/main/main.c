@@ -10,6 +10,7 @@
 #include "sdkconfig.h"
 
 #include "app_types.h"
+#include "audio_out.h"
 #include "ble_status.h"
 #include "modem_at.h"
 #include "modem_gnss.h"
@@ -34,7 +35,6 @@ static bkl_point_t s_selftest_records[BKL_SELFTEST_RECORDS];
 
 static bkl_ringbuf_t s_ring;
 static bkl_uploader_t s_uploader;
-static char s_scratch[4096];
 
 /* --- RAM 版存储后端 --- */
 
@@ -95,6 +95,8 @@ static void load_device_id(char *out, size_t cap)
 #ifdef CONFIG_BKL_SELFTEST_ON_BOOT
 static void run_selftest(void)
 {
+    /* 只在自检编译时占 4 KB；关闭自检时不进 .bss。 */
+    static char scratch[4096];
     int64_t base_ts = 1793000000; /* 固定时间戳，便于对照日志 */
     for (uint32_t i = 0; i < 3; i++) {
         bkl_point_t p = {
@@ -116,7 +118,7 @@ static void run_selftest(void)
     }
 
     uint32_t sent = 0;
-    bkl_upload_result_t r = bkl_uploader_step(&s_uploader, base_ts + 30, s_scratch, sizeof(s_scratch), &sent);
+    bkl_upload_result_t r = bkl_uploader_step(&s_uploader, base_ts + 30, scratch, sizeof(scratch), &sent);
     ESP_LOGI(TAG, "自检结果：%d，发送 %u 条，缓冲剩余 %u 条",
              (int)r, (unsigned)sent, (unsigned)bkl_ringbuf_count(&s_ring));
     if (r != BKL_UPLOAD_SENT || sent != 3 || bkl_ringbuf_count(&s_ring) != 0) {
@@ -195,6 +197,20 @@ void app_main(void)
     if (bkl_st25dv_init(0, 5, 6, 9) != ESP_OK) {
         ESP_LOGW(TAG, "NFC 标签未就绪（ST25DV16K，I²C0 SDA=5 SCL=6 GPO=9）");
     }
+    if (bkl_audio_init() != ESP_OK) {
+        ESP_LOGW(TAG, "提示音未就绪（I²S LRCLK=%d BCLK=%d DIN=%d）", CONFIG_BKL_AUDIO_LRCLK,
+                 CONFIG_BKL_AUDIO_BCLK, CONFIG_BKL_AUDIO_DIN);
+    }
+
+#ifdef CONFIG_BKL_AUDIO_SELFTEST_ON_BOOT
+    /* 产线自检：能听到 2 kHz 三声就说明 I²S 通道与喇叭接线是对的。 */
+    esp_err_t audio_err = bkl_audio_find_me();
+    if (audio_err == ESP_OK) {
+        ESP_LOGI(TAG, "提示音自检：已排队播放找车音");
+    } else {
+        ESP_LOGE(TAG, "提示音自检：未播出（%s）", esp_err_to_name(audio_err));
+    }
+#endif
 
     ESP_LOGW(TAG, "M0 骨架：采样/AT/GNSS/BLE 均为桩实现，见 docs/roadmap.md 的 M1");
 
