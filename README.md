@@ -4,7 +4,7 @@
 
 Android App 已能通过公开 HTTPS API 注册、登录、手动绑定、查看车辆列表和解绑。后端使用 JWT 鉴权与 Postgres 存储，账号与车辆流程已通过 Android 模拟器公网验收。入口、鉴权与验证方法见 [部署与联调环境](docs/deployment.md)。
 
-真实定位与轨迹上报、NFC/BLE 接入、Android 真机验收、iOS 打包和 ESP-IDF 构建仍待完成，见 [路线图](docs/roadmap.md)。
+真实定位与轨迹上报、NFC/BLE 接入、Android 真机验收和 iOS 打包仍待完成。固件构建与提示音验证见 [固件 README](firmware/README.md)，其他验收项见 [路线图](docs/roadmap.md)。
 
 ## 组成
 

@@ -110,8 +110,7 @@ S3 的引脚规则与经典 ESP32 差别很大，踩过的坑写在表后。
 
 实物是「思川班」I²S 音频板，8 个焊盘：`SD` `SCK` `WS` `DIN` `BCLK` `LRCLK` `GND` `VCC`，另有 `SPK` 喇叭座（2P 贴片座）。
 
-- **放音方向**只用 `LRCLK` / `BCLK` / `DIN` + `VCC` / `GND`；`WS` / `SCK` / `SD` 是录音方向的 I²S 口（板上有 `MIC` 丝印），本项目暂不接。
-- `SD` 若实测是功放使能（高有效），接 `3V3` 常开；接上后用万用表量 `SD` 对 `GND` 确认没有短路到地。
+- **放音接线**使用 `LRCLK` / `BCLK` / `DIN`、`VCC` 和 `GND`。`WS` / `SCK` / `SD` 保持未接，`SD` 的功能待实测。
 - ESP32-S3 **没有 DAC**，提示音用 `i2s_std` 发送 PCM：找车用 1–2 kHz 间断方波即可，代码量很小。
 - 固件对应：`main/audio/tone_gen.c`（纯 C 合成 PCM，主机单测覆盖）+ `main/audio/audio_out.c`（I²S 输出）；
   引脚与音量在 `idf.py menuconfig` → 自行车定位设备 → `BKL_AUDIO_LRCLK/BCLK/DIN/SAMPLE_RATE_HZ/AMPLITUDE`。

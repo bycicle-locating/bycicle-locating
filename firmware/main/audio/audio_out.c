@@ -37,7 +37,7 @@ static esp_err_t audio_write_all(const int16_t *samples, size_t frames)
         size_t sent = 0;
         esp_err_t err = i2s_channel_write(s_tx, (const uint8_t *)samples + written,
                                           bytes - written, &sent,
-                                          pdMS_TO_TICKS(BKL_AUDIO_WRITE_TIMEOUT_MS));
+                                          BKL_AUDIO_WRITE_TIMEOUT_MS);
         if (err != ESP_OK) {
             if (err == ESP_ERR_TIMEOUT && sent > 0) {
                 written += sent;
@@ -137,8 +137,8 @@ esp_err_t bkl_audio_init(void)
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num = BKL_AUDIO_DMA_DESC_NUM;
     chan_cfg.dma_frame_num = BKL_AUDIO_CHUNK_FRAMES;
-    /* DMA 块发送后自动清零：欠载或下一次播放时输出静音，而不是上一轮的残留采样。 */
-    chan_cfg.auto_clear_after_cb = true;
+    /* 兼容 ESP-IDF 5.1 的字段名。清零已发送的 DMA 块，避免重播残留采样。 */
+    chan_cfg.auto_clear = true;
 
     esp_err_t err = i2s_new_channel(&chan_cfg, &s_tx, NULL);
     if (err != ESP_OK) {

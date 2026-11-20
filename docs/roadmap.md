@@ -1,6 +1,6 @@
 # 路线图
 
-M0 的 iOS 打包和 ESP-IDF 构建待验证。M1 已交付公网账号与车辆 API，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
+M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
 
 ## M0 — 仓库骨架
 
@@ -14,7 +14,7 @@ M0 的 iOS 打包和 ESP-IDF 构建待验证。M1 已交付公网账号与车辆
 - [x] `firmware/` 纯 C 模块通过 gcc 13 编译与主机单测
 - [x] `app/` 生成 `android/` 平台工程并可打包（`flutter build apk --debug` 通过，applicationId = `top.byciclelocating.app`）
 - [ ] `app/` 生成 `ios/` 平台工程并可打包
-- [ ] `firmware/` 通过 `idf.py build`（待安装 ESP-IDF）
+- [x] `firmware/` 通过 `idf.py build`，见 [固件构建记录](../firmware/README.md)
 
 **退出标准**：后端、App 和固件完成构建，覆盖 Android、iOS 与 ESP-IDF。
 

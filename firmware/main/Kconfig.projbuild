@@ -60,10 +60,10 @@ menu "自行车定位设备"
             I²S 数字功放模块的 BCLK/SCK。
 
     config BKL_AUDIO_DIN
-        int "提示音 I²S DIN（SD）引脚"
+        int "提示音 I²S 数据输出引脚"
         default 12
         help
-            ESP32 → 功放的数据线。功放的 WS/SCK/SD 焊盘属于录音方向，本固件不用。
+            连接功放模块的 DIN 焊盘。接线见 docs/hardware.md §3.2。
 
     config BKL_AUDIO_SAMPLE_RATE_HZ
         int "提示音采样率（Hz）"

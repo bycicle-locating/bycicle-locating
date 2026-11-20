@@ -31,11 +31,9 @@ ESP32 车载固件，ESP-IDF v5.x（C）。硬件见 [../docs/hardware.md](../do
 | `main/ble/ble_status` | ⛔ 桩 | GATT 状态服务（M1） |
 | `main/power/power_mgr` | ⛔ 桩 | 睡眠与唤醒（M4） |
 
-标 ✅ 的模块不依赖任何 ESP-IDF 头文件，可以脱离硬件直接跑主机单测。
-
 提示音**不是**无源蜂鸣器：实物是 I²S 数字功放模块（见 `docs/hardware.md` §3.2），
 所以用 `i2s_std` 推 16 bit 单声道 PCM，**不能**用 LEDC/PWM 直驱；`tone_gen` 只算 PCM，
-主机上就能验证波形与时长，接上板子只需确认喇叭是否响。
+主机单测验证波形与时长，喇叭接线与完整播放由真机验收。
 
 播放收尾：最后一块 PCM 会补零到整 DMA 块，并在关闭 I²S 前等待一个 DMA 队列时长
 （4×256 帧 ≈ 64 ms @16 kHz，另加余量）。这是因为 `i2s_channel_disable()` 会直接复位
@@ -101,8 +99,7 @@ idf.py menuconfig        # 自行车定位设备 → 开机播放一次找车提
 - `AT+QMTPUBEX` 是"等 `>` 再发裸数据"的两段式，别用一次 `bkl_at_cmd` 搞定。
 - 深度睡眠会清 RAM，`s_ring` 这类静态结构唤醒后必须重建并从 NVS 恢复。
 - BLE 单次写入只有 20 字节，MTU 协商在 Android/iOS 上行为不同（pairing.md §5.3）。
-- 提示音模块只有 `VCC/GND/LRCLK/BCLK/DIN` 接对、且 `SPK` 座上真的插了喇叭才会响；
-  只接电源时它是完全静音的（不是坏了）。`WS/SCK/SD` 是录音方向，固件不使用。
+- 提示音模块的放音接线为 `VCC/GND/LRCLK/BCLK/DIN`，喇叭接入 `SPK` 座。其余焊盘见 [硬件说明](../docs/hardware.md#32-提示音模块i%C2%B2s)。
 
 ## 目录
 
@@ -126,5 +123,5 @@ main/
 - [ ] `modem_mqtt` 的 QMTOPEN/CONN/PUBEX 与断线重连
 - [ ] `modem_gnss` 的 QGPSLOC 解析（注意 km/h → m/s）
 - [ ] 采集任务与上报任务分离，用事件组驱动
-- [ ] 真机验证 `audio_out`：已发声（2026-11-20），音量、可听距离与最后一声完整性待细测
+- [ ] 真机确认三声完整播放、音量、可听距离和 `SD` 焊盘功能
 - [ ] 扩充主机单测：满盘、掉电恢复、时区边界（`epoch_to_civil`）
