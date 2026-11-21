@@ -144,6 +144,7 @@ compose up -d broker-tls
 wait_until "TLS Broker 未就绪" broker_ready
 compose up -d --build --wait --wait-timeout 240 backend
 api="http://$(compose port backend 8080 | tr -d '\r')"
+BASE_URL="$api" bash deploy/telemetry-smoke.sh
 
 register_device() {
   compose run --rm --no-deps -T --entrypoint /usr/local/bin/bkl-device-admin \

@@ -1,6 +1,6 @@
 # 路线图
 
-M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，后端接入了 MQTT 遥测入库，设备到 App 的真实轨迹链路待验收。每个里程碑按各节退出标准验收。
+M0 的 iOS 打包待验证。M1 的账号、车辆和遥测 API 已上线，MQTT 模拟上报到 App 地图已在隔离环境验证。Android 实体手机的公网账号与车辆流程、真实车载定位上报仍待验收。每个里程碑按各节退出标准验收。
 
 ## M0 — 仓库骨架
 
@@ -31,6 +31,7 @@ M0 的 iOS 打包待验证。M1 已交付公网账号与车辆 API，后端接�
 - [ ] 锁屏触碰实测：Android 与 iOS（Type 5 的后台读取得真机确认）
 - [x] 后端：MQTT TLS 订阅、协议校验、Postgres 遥测去重入库
 - [x] 后端：设备登记 CLI、车主位置与轨迹查询、按绑定时间过滤轨迹
+- [x] 后端：生产已连接 MQTT TLS Broker，公开遥测路由通过只读健康与鉴权检查（[部署与联调环境](deployment.md#4-联通验证)）
 - [x] 后端：用户注册/登录 + JWT + Postgres Store + 迁移脚本
 - [ ] 固件：`modem_at` 真实实现（UART + URC），`modem_mqtt` 完成 QMTOPEN/CONN/PUBEX
 - [ ] 固件：`track/ringbuf` 落 LittleFS，`uploader` 批量与退避
