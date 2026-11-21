@@ -4,7 +4,7 @@
 
 Android App 已能通过公开 HTTPS API 注册、登录、手动绑定、查看车辆列表和解绑。后端使用 JWT 鉴权与 Postgres 存储，账号与车辆流程已通过 Android 模拟器公网验收。入口、鉴权与验证方法见 [部署与联调环境](docs/deployment.md)。
 
-地图支持显示当前车辆的最新位置与最近轨迹。真实车载定位上报、NFC/BLE 接入、Android 真机验收和 iOS 打包仍待完成。固件构建与提示音验证见 [固件 README](firmware/README.md)，其他验收项见 [路线图](docs/roadmap.md)。
+生产后端已接入 MQTT TLS 遥测并提供车主位置与轨迹接口。Android 模拟器已用隔离环境的模拟上报验证地图显示。真实车载定位上报、NFC/BLE 接入、Android 真机验收和 iOS 打包仍待完成。固件构建与提示音验证见 [固件 README](firmware/README.md)，其他验收项见 [路线图](docs/roadmap.md)。
 
 ## 组成
 

@@ -40,7 +40,7 @@ App ──HTTPS──> api.bycicle-locating.top ──────────�
 | `TUNNEL_TOKEN` | Cloudflare Tunnel 连接器凭据 |
 | `CF_ACCESS_CLIENT_ID`、`CF_ACCESS_CLIENT_SECRET` | 团队入口的联调脚本凭据 |
 | `BKL_BIND_ADDR=127.0.0.1`、`BKL_HTTP_PORT=32525` | nginx 在服务器上的监听地址与端口 |
-| `MQTT_URL`、`MQTT_USER`、`MQTT_PASSWORD` | 新版后端的生产必填项。使用上表的 TLS Broker 地址和后端专用账号 |
+| `MQTT_URL`、`MQTT_USER`、`MQTT_PASSWORD` | 生产必填。使用上表的 TLS Broker 地址和后端专用账号 |
 | `MQTT_CA_FILE`、`MQTT_CLIENT_ID` | 私有 CA 容器路径为 `/run/bkl/mqtt/mqtt-ca.crt`，默认客户端 ID 为 `bkl-backend` |
 
 升级后端前先填 MQTT 配置并准备 [公共 CA 证书](../backend/deploy/certs/mqtt-ca.crt)。默认源目录为
@@ -65,7 +65,7 @@ docker compose --profile deps exec -T postgres pg_dump -U bkl bike_locating > ba
 启动 Postgres 模式时，`migrate` 先执行 `internal/store/migrations/` 中的迁移，后端启动时再校验表结构。生产数据保存在 `pg-data` 卷，维护和重建容器时须保留该卷。`POSTGRES_PASSWORD` 在首次初始化数据卷时生效。
 
 新设备须先[登记设备编号和声明码](../backend/README.md#设备登记)，再用该编号配置 Broker 凭据和 ACL。
-绑定成功后，当前车主可以通过 [位置与轨迹接口](http-api.md#31-最新位置与轨迹) 查看本次绑定期间的遥测。
+当前车主可通过公网 [位置与轨迹接口](http-api.md#31-最新位置与轨迹) 查看本次绑定期间的有效定位点。
 
 在 Cloudflare Zero Trust 中维护团队邮箱和 Access 服务令牌。轮换服务令牌时，将新凭据写入服务器 `.env`，再更新 Access 策略的令牌引用。轮换 Tunnel 凭据后，更新 `TUNNEL_TOKEN` 并重建 `cloudflared`。
 
@@ -73,11 +73,24 @@ docker compose --profile deps exec -T postgres pg_dump -U bkl bike_locating > ba
 
 从开发机执行以下只读检查。服务器本机可用 `http://127.0.0.1:32525/healthz` 直连 nginx。
 
+在仓库根目录执行下列命令，检查 API 健康状态与遥测路由的匿名鉴权。
+
+```bash
+BASE_URL=https://api.bycicle-locating.top bash backend/deploy/telemetry-smoke.sh
+```
+
+通过条件是 `/healthz` 返回 `200` 与 `status: ok`，位置和轨迹接口均返回 `401 unauthenticated`。
+如果上述匿名检查返回 `404`，核对当前运行的后端版本与代理路由。
+
+2026-11-21，生产后端部署 [`e00641c`](https://github.com/bycicle-locating/bycicle-locating/commit/e00641ccf9860e8bebbf764c798282a5054471cc) 后，通过 MQTT TLS 连接生产 Broker 并完成 `telemetry`、`event`、`status` 和 `cmd/ack` 订阅。开发机对公网 API 执行上述检查，三项均通过。
+
+使用 [隔离联调脚本](../backend/deploy/e2e-mqtt.sh) 可复现 MQTT 模拟上报、Postgres 入库、带 JWT 的车主查询和换绑隔离。
+
 ```bash
 curl -fsS https://api.bycicle-locating.top/healthz
 curl -sS -i https://api.bycicle-locating.top/v1/users/me
 curl -sS -i https://api.bycicle-locating.top/v1/users/me/devices
-curl -sS -o /dev/null -w '%{http_code}\n' https://bycicle-locating.top/healthz
+curl -sS -i https://bycicle-locating.top/healthz
 ```
 
 2026-11-20 实测，公开 API 的 `/healthz` 返回 `200` 和 `{"status":"ok"}`，匿名访问用户与车辆列表返回 `401 unauthenticated`，团队入口的 `/healthz` 返回 Access `302`。Flutter `ApiClient` 使用默认地址时也收到了预期的 JSON 鉴权响应。
@@ -87,5 +100,6 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://bycicle-locating.top/healthz
 2026-11-13，Android 模拟器已通过公网完成注册、登录、会话恢复、绑定和解绑。真机验收见 [Issue #15](https://github.com/bycicle-locating/bycicle-locating/issues/15)。 [App 验收记录](app-auth-acceptance.md)
 
 2026-11-20，服务器本机通过 MQTT TLS 1.2 与 1.3 严格校验，开发机公网实测 TLS 1.3 通过。
-开发机公网 TLS 1.2 握手被重置，仍需用 EC800M 在蜂窝网上实测。后端 MQTT 入库可用
-`backend/deploy/e2e-mqtt.sh` 在隔离环境复现。
+开发机公网 TLS 1.2 握手被重置，仍需用 EC800M 在蜂窝网上实测。
+
+实车联调使用专用测试设备和账号。实车在室外开机后，确认 App 地图在 5 分钟内显示首个真实定位点。记录该点的 `seq`、UTC 采样时间和 App 版本。在联调环境重启后端，确认当前车主仍能查询该点。
